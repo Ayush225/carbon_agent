@@ -239,7 +239,7 @@
 const SERVER = (
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://localhost:3456"
-    : window.RAILWAY_SERVER_URL || "carbonagent-production.up.railway.app"
+    : window.RAILWAY_SERVER_URL || "https://carbonagent-production.up.railway.app"
 );
 const REFRESH_INTERVAL = 2 * 60 * 1000;
 const CHAT_API = `${SERVER}/chat`;
