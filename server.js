@@ -76,12 +76,36 @@ async function embed(texts) {
     }
   }, payload);
   if (res.status !== 200) throw new Error(`HuggingFace error ${res.status}: ${JSON.stringify(res.body)}`);
-  const result = res.body;
-  // Normalize to array of vectors
-  if (Array.isArray(result) && Array.isArray(result[0]) && Array.isArray(result[0][0])) return result; // batch [[vec],[vec]]
-  if (Array.isArray(result) && Array.isArray(result[0]) && typeof result[0][0] === "number") return [result]; // single [vec]
-  if (Array.isArray(result) && typeof result[0] === "number") return [result]; // bare vec
-  return result;
+  const raw = res.body;
+
+  // HF can return several shapes — normalize everything to: Array of flat float arrays
+  // Shape A: [ [f,f,f,...], [f,f,f,...] ]  — batch of vectors (what we want)
+  // Shape B: [ f, f, f, ... ]              — single bare vector
+  // Shape C: [ [[f,f,...]], [[f,f,...]] ]   — batch wrapped in extra dim (token-level)
+  // Shape D: [ [ [f,f,...] ] ]             — single wrapped in two extra dims
+
+  function flatten(v) {
+    // Recursively unwrap until we get a flat number array
+    while (Array.isArray(v) && Array.isArray(v[0])) v = v[0];
+    return v;
+  }
+
+  // If it's a batch (array of items)
+  if (Array.isArray(raw)) {
+    if (typeof raw[0] === "number") {
+      // bare single vector [f,f,f,...]
+      return [raw];
+    }
+    if (Array.isArray(raw[0])) {
+      if (typeof raw[0][0] === "number") {
+        // [[f,f,...],[f,f,...]] — proper batch
+        return raw;
+      }
+      // Nested deeper — flatten each item
+      return raw.map(item => flatten(item));
+    }
+  }
+  return [flatten(raw)];
 }
 
 // Qdrant helpers
@@ -107,7 +131,8 @@ async function ensureCollection() {
   // Probe actual embedding size with a test string
   const testVecs = await embed(["test"]);
   const dim = testVecs[0].length;
-  log(`Detected embedding dimension: ${dim}`);
+  log(`Detected embedding dimension: ${dim} (vec sample: ${JSON.stringify(testVecs[0].slice(0,3))}...)`);
+  if (dim < 10) throw new Error(`Embedding dim too small (${dim}) — check HF response shape`);
 
   const res = await qdrantReq("PUT", `/collections/${COLLECTION}`, {
     vectors: { size: dim, distance: "Cosine" }
