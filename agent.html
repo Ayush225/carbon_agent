@@ -238,6 +238,75 @@
 
   #input-hint { font-size: 10px; color: var(--muted2); padding: 4px 20px 8px; font-family: var(--mono); }
 
+  /* ── Header Price Ticker ─────────────────────────────────────── */
+  #price-ticker {
+    display: flex; align-items: center; gap: 10px;
+    margin-left: auto; position: relative;
+  }
+  #price-ticker-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; background: var(--bg3);
+    border: 1px solid var(--border2); border-radius: 8px;
+    cursor: pointer; font-family: var(--mono); font-size: 12px;
+    color: var(--text); transition: border-color 0.15s;
+    white-space: nowrap;
+  }
+  #price-ticker-btn:hover { border-color: var(--accent); }
+  #price-ticker-btn.open { border-color: var(--accent); background: var(--bg4); }
+  .ticker-label { font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.06em; }
+  .ticker-val { font-size: 14px; font-weight: 600; color: var(--text); }
+  .ticker-val.up { color: var(--green); }
+  .ticker-val.down { color: var(--red); }
+  .ticker-chg { font-size: 10px; }
+  .ticker-arrow { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+  .ticker-arrow.open { transform: rotate(180deg); }
+
+  #price-dropdown {
+    display: none; position: absolute; top: calc(100% + 6px); right: 0;
+    width: 420px; background: var(--bg2);
+    border: 1px solid var(--border2); border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 100; overflow: hidden;
+  }
+  #price-dropdown.open { display: block; }
+  #pd-header {
+    padding: 12px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #pd-header h3 { font-size: 12px; font-weight: 600; }
+  #pd-date { font-size: 10px; color: var(--muted2); font-family: var(--mono); }
+  #pd-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .pd-card { background: var(--bg3); border-radius: 6px; padding: 8px 10px; }
+  .pd-card-lbl { font-size: 9px; color: var(--muted2); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--mono); margin-bottom: 4px; }
+  .pd-card-val { font-size: 16px; font-weight: 600; font-family: var(--mono); }
+  .pd-card-val.up { color: var(--green); }
+  .pd-card-val.down { color: var(--red); }
+  .pd-card-chg { font-size: 10px; font-family: var(--mono); margin-top: 2px; }
+  .pd-card-chg.up { color: var(--green); }
+  .pd-card-chg.down { color: var(--red); }
+  #pd-controls { padding: 8px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  #pd-range-select {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-size: 11px; padding: 5px 8px;
+    border-radius: 6px; font-family: var(--mono); outline: none;
+  }
+  #pd-table-wrap { max-height: 220px; overflow-y: auto; }
+  #pd-table-wrap::-webkit-scrollbar { width: 3px; }
+  #pd-table-wrap::-webkit-scrollbar-thumb { background: var(--border2); }
+  .pd-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono); }
+  .pd-table th {
+    position: sticky; top: 0; background: var(--bg3); padding: 6px 10px;
+    text-align: right; font-size: 9px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--border2);
+  }
+  .pd-table th:first-child { text-align: left; }
+  .pd-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: right; color: var(--muted); }
+  .pd-table td:first-child { text-align: left; color: var(--text); }
+  .pd-table tr:hover td { background: var(--bg3); }
+  .pw-up { color: var(--green) !important; }
+  .pw-down { color: var(--red) !important; }
+  #pd-footer { padding: 6px 14px; font-size: 9px; color: var(--muted2); font-family: var(--mono); }
+
   /* Price table */
   .price-table-wrap { margin-top: 10px; }
   .price-table-toggle {
@@ -266,6 +335,62 @@
   .price-table tr:hover td { background: var(--bg3); }
   .price-val-up { color: var(--green); }
   .price-val-down { color: var(--red); }
+
+  /* ── Price Widget ──────────────────────────────────────────────── */
+  #panel-prices { padding: 0; flex-direction: column; overflow: hidden; }
+
+  #price-widget-header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .pw-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted2); font-family: var(--mono); margin-bottom: 6px; }
+  .pw-cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .pw-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 8px;
+  }
+  .pw-card-label { font-size: 9px; color: var(--muted2); font-family: var(--mono); margin-bottom: 3px; text-transform: uppercase; }
+  .pw-card-val { font-size: 15px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+  .pw-card-val.up { color: var(--green); }
+  .pw-card-val.down { color: var(--red); }
+  .pw-card-chg { font-size: 10px; margin-top: 2px; font-family: var(--mono); }
+  .pw-card-date { font-size: 9px; color: var(--muted2); margin-top: 2px; font-family: var(--mono); }
+
+  #price-widget-controls {
+    padding: 8px 14px; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  #price-range-select {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-size: 11px; padding: 5px 8px;
+    border-radius: 6px; font-family: var(--mono); outline: none;
+  }
+  #price-range-select:focus { border-color: var(--accent); }
+  .pw-refresh-btn {
+    background: none; border: 1px solid var(--border2); color: var(--muted);
+    border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 12px;
+  }
+  .pw-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  #price-hist-table-wrap { flex: 1; overflow-y: auto; }
+  #price-hist-table-wrap::-webkit-scrollbar { width: 3px; }
+  #price-hist-table-wrap::-webkit-scrollbar-thumb { background: var(--border2); }
+  .pw-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono); }
+  .pw-table th {
+    position: sticky; top: 0; background: var(--bg3);
+    padding: 6px 10px; text-align: right; font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+    border-bottom: 1px solid var(--border2);
+  }
+  .pw-table th:first-child { text-align: left; }
+  .pw-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); text-align: right; color: var(--muted); }
+  .pw-table td:first-child { text-align: left; color: var(--text); }
+  .pw-table tr:hover td { background: var(--bg3); }
+  .pw-up { color: var(--green) !important; }
+  .pw-down { color: var(--red) !important; }
+  .pw-neutral { color: var(--muted) !important; }
+  #pw-last-updated { padding: 6px 14px; font-size: 9px; color: var(--muted2); font-family: var(--mono); border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -288,6 +413,7 @@
       <button class="tab-btn active" onclick="switchTab('sources')" id="tab-sources">Sources</button>
       <button class="tab-btn" onclick="switchTab('history')" id="tab-history">History</button>
       <button class="tab-btn" onclick="switchTab('suggest')" id="tab-suggest">Suggest</button>
+      <button class="tab-btn" onclick="switchTab('prices')" id="tab-prices">Prices</button>
     </div>
 
     <div class="tab-panel active" id="panel-sources">
@@ -302,6 +428,48 @@
       <!-- filled by JS -->
     </div>
 
+    <div class="tab-panel" id="panel-prices">
+      <div id="price-widget-header">
+        <div class="pw-label">LCFS Live Prices</div>
+        <div class="pw-cards">
+          <div class="pw-card">
+            <div class="pw-card-label">Benchmark</div>
+            <div class="pw-card-val" id="pw-benchmark">—</div>
+            <div class="pw-card-chg" id="pw-benchmark-chg"></div>
+          </div>
+          <div class="pw-card">
+            <div class="pw-card-label">Spot</div>
+            <div class="pw-card-val" id="pw-spot">—</div>
+            <div class="pw-card-chg" id="pw-spot-chg"></div>
+          </div>
+          <div class="pw-card">
+            <div class="pw-card-label">Front Nodal</div>
+            <div class="pw-card-val" id="pw-nodal">—</div>
+            <div class="pw-card-chg" id="pw-nodal-chg"></div>
+          </div>
+        </div>
+        <div class="pw-card-date" id="pw-latest-date" style="margin-top:6px;"></div>
+      </div>
+      <div id="price-widget-controls">
+        <select id="price-range-select" onchange="renderPriceTable()">
+          <option value="10">Last 10 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="180">Last 6 months</option>
+          <option value="365">Last 1 year</option>
+          <option value="9999">All history</option>
+        </select>
+        <button class="pw-refresh-btn" onclick="loadPriceData(true)" title="Refresh">↻</button>
+      </div>
+      <div id="price-hist-table-wrap">
+        <table class="pw-table">
+          <thead><tr><th>Date</th><th>Benchmark</th><th>Spot</th><th>Front Nodal</th></tr></thead>
+          <tbody id="pw-tbody"><tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:20px;">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="pw-last-updated">Last updated: —</div>
+    </div>
+
     <div id="sidebar-footer">
       <span id="sync-label">Next sync in <span id="countdown">—</span></span>
       <span id="article-count" style="color:var(--muted);">—</span>
@@ -314,7 +482,57 @@
       <div id="chat-header-icon">⚡</div>
       <div>
         <div id="chat-title">cCarbon CFS Assistant</div>
-        <div id="chat-subtitle">Powered by Llama 3.3 70B · Semantic Search</div>
+        <div id="chat-subtitle">Powered by Llama 3.1 8B · Semantic Search</div>
+      </div>
+      <div id="price-ticker">
+        <div id="price-ticker-btn" onclick="togglePriceDropdown()">
+          <div>
+            <div class="ticker-label">LCFS Benchmark</div>
+            <span class="ticker-val" id="ticker-val">Loading…</span>
+            <span class="ticker-chg" id="ticker-chg"></span>
+          </div>
+          <span class="ticker-arrow" id="ticker-arrow">▼</span>
+        </div>
+        <div id="price-dropdown">
+          <div id="pd-header">
+            <h3>LCFS Live Prices</h3>
+            <span id="pd-date">—</span>
+          </div>
+          <div id="pd-cards">
+            <div class="pd-card">
+              <div class="pd-card-lbl">Benchmark</div>
+              <div class="pd-card-val" id="pd-benchmark">—</div>
+              <div class="pd-card-chg" id="pd-benchmark-chg"></div>
+            </div>
+            <div class="pd-card">
+              <div class="pd-card-lbl">Spot</div>
+              <div class="pd-card-val" id="pd-spot">—</div>
+              <div class="pd-card-chg" id="pd-spot-chg"></div>
+            </div>
+            <div class="pd-card">
+              <div class="pd-card-lbl">Front Nodal</div>
+              <div class="pd-card-val" id="pd-nodal">—</div>
+              <div class="pd-card-chg" id="pd-nodal-chg"></div>
+            </div>
+          </div>
+          <div id="pd-controls">
+            <select id="pd-range-select" onchange="renderDropdownTable()">
+              <option value="10">Last 10 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="180">Last 6 months</option>
+              <option value="365">Last year</option>
+              <option value="9999">All history</option>
+            </select>
+          </div>
+          <div id="pd-table-wrap">
+            <table class="pd-table">
+              <thead><tr><th>Date</th><th>Benchmark</th><th>Spot</th><th>Front Nodal</th></tr></thead>
+              <tbody id="pd-tbody"></tbody>
+            </table>
+          </div>
+          <div id="pd-footer" id="pd-updated">—</div>
+        </div>
       </div>
       <span id="header-meta">—</span>
     </div>
@@ -630,6 +848,197 @@ setInterval(() => {
   countdown.textContent = secs > 0 ? `${secs}s` : "syncing…";
   if (secs === 0) fetchSources();
 }, 1000);
+
+// ── Header Price Ticker ───────────────────────────────────────────────────────
+var tickerOpen = false;
+
+function togglePriceDropdown() {
+  tickerOpen = !tickerOpen;
+  var btn = document.getElementById("price-ticker-btn");
+  var dd  = document.getElementById("price-dropdown");
+  var arr = document.getElementById("ticker-arrow");
+  if (btn) btn.classList.toggle("open", tickerOpen);
+  if (dd)  dd.classList.toggle("open", tickerOpen);
+  if (arr) arr.classList.toggle("open", tickerOpen);
+  if (tickerOpen) renderDropdownTable();
+}
+
+// Close dropdown when clicking outside
+document.addEventListener("click", function(e) {
+  if (tickerOpen && !document.getElementById("price-ticker").contains(e.target)) {
+    tickerOpen = false;
+    var btn = document.getElementById("price-ticker-btn");
+    var dd  = document.getElementById("price-dropdown");
+    var arr = document.getElementById("ticker-arrow");
+    if (btn) btn.classList.remove("open");
+    if (dd)  dd.classList.remove("open");
+    if (arr) arr.classList.remove("open");
+  }
+});
+
+function updateTicker() {
+  if (!cachedPriceData.length) return;
+  var latest = cachedPriceData[0];
+  var prev   = cachedPriceData[1] || {};
+
+  // Ticker button
+  var val = parseFloat(latest.Benchmark);
+  var prevVal = parseFloat(prev.Benchmark);
+  var tickerValEl = document.getElementById("ticker-val");
+  var tickerChgEl = document.getElementById("ticker-chg");
+  if (tickerValEl) {
+    tickerValEl.textContent = isNaN(val) ? "—" : "$" + val.toFixed(2);
+    if (!isNaN(val) && !isNaN(prevVal)) {
+      var diff = val - prevVal;
+      var pct = diff / prevVal * 100;
+      tickerValEl.className = "ticker-val " + (diff > 0 ? "up" : diff < 0 ? "down" : "");
+      if (tickerChgEl) {
+        tickerChgEl.textContent = (diff >= 0 ? "▲" : "▼") + " " + Math.abs(diff).toFixed(2) + " (" + Math.abs(pct).toFixed(1) + "%)";
+        tickerChgEl.className = "ticker-chg " + (diff > 0 ? "pw-up" : "pw-down");
+      }
+    }
+  }
+
+  // Dropdown cards
+  var fields = [
+    { valId: "pd-benchmark", chgId: "pd-benchmark-chg", key: "Benchmark" },
+    { valId: "pd-spot",      chgId: "pd-spot-chg",      key: "Spot" },
+    { valId: "pd-nodal",     chgId: "pd-nodal-chg",     key: "Front (Nodal)" }
+  ];
+  fields.forEach(function(f) {
+    var vEl = document.getElementById(f.valId);
+    var cEl = document.getElementById(f.chgId);
+    if (!vEl) return;
+    var v = parseFloat(latest[f.key]);
+    var p = parseFloat(prev[f.key]);
+    vEl.textContent = isNaN(v) ? "—" : "$" + v.toFixed(2);
+    if (!isNaN(v) && !isNaN(p)) {
+      var d = v - p;
+      var pct2 = d / p * 100;
+      vEl.className = "pd-card-val " + (d > 0 ? "up" : d < 0 ? "down" : "");
+      if (cEl) {
+        cEl.textContent = (d >= 0 ? "+" : "") + d.toFixed(2) + " (" + (d >= 0 ? "+" : "") + pct2.toFixed(1) + "%)";
+        cEl.className = "pd-card-chg " + (d > 0 ? "up" : d < 0 ? "down" : "");
+      }
+    }
+  });
+
+  var dateEl = document.getElementById("pd-date");
+  if (dateEl) dateEl.textContent = "As of " + (latest.Date || "—");
+  var footEl = document.getElementById("pd-footer");
+  if (footEl && priceLastFetchedUI) footEl.textContent = "Last updated: " + new Date(priceLastFetchedUI).toLocaleTimeString();
+}
+
+function renderDropdownTable() {
+  var sel = document.getElementById("pd-range-select");
+  var days = sel ? parseInt(sel.value) : 30;
+  var rows = cachedPriceData.slice(0, days);
+  var tbody = document.getElementById("pd-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = rows.map(function(r, i) {
+    var prev = rows[i + 1] || {};
+    function cell(key) {
+      var v = parseFloat(r[key]), p = parseFloat(prev[key]);
+      var val = isNaN(v) ? "—" : "$" + v.toFixed(2);
+      var cls = (!isNaN(v) && !isNaN(p)) ? (v > p ? "pw-up" : v < p ? "pw-down" : "") : "";
+      return "<td class='" + cls + "'>" + val + "</td>";
+    }
+    return "<tr><td>" + (r.Date || "—") + "</td>" + cell("Benchmark") + cell("Spot") + cell("Front (Nodal)") + "</tr>";
+  }).join("");
+}
+
+// ── Price Widget ──────────────────────────────────────────────────────────────
+function fmt(val) {
+  if (!val || val === "") return "—";
+  var n = parseFloat(val);
+  return isNaN(n) ? "—" : "$" + n.toFixed(2);
+}
+
+function fmtChg(curr, prev) {
+  if (!curr || !prev || curr === "" || prev === "") return { html: "", cls: "" };
+  var c = parseFloat(curr), p = parseFloat(prev);
+  if (isNaN(c) || isNaN(p) || p === 0) return { html: "", cls: "" };
+  var diff = c - p;
+  var pct = (diff / p * 100);
+  var sign = diff >= 0 ? "+" : "";
+  var cls = diff > 0 ? "pw-up" : diff < 0 ? "pw-down" : "pw-neutral";
+  return { html: sign + diff.toFixed(2) + " (" + sign + pct.toFixed(1) + "%)", cls: cls };
+}
+
+function renderPriceWidget() {
+  if (!cachedPriceData.length) return;
+  var latest = cachedPriceData[0];
+  var prev   = cachedPriceData[1] || {};
+
+  // Top cards
+  var fields = [
+    { id: "pw-benchmark", chgId: "pw-benchmark-chg", key: "Benchmark" },
+    { id: "pw-spot",      chgId: "pw-spot-chg",      key: "Spot" },
+    { id: "pw-nodal",     chgId: "pw-nodal-chg",     key: "Front (Nodal)" }
+  ];
+  fields.forEach(function(f) {
+    var el = document.getElementById(f.id);
+    var chgEl = document.getElementById(f.chgId);
+    if (!el) return;
+    var chg = fmtChg(latest[f.key], prev[f.key]);
+    el.textContent = fmt(latest[f.key]);
+    el.className = "pw-card-val " + (chg.cls === "pw-up" ? "up" : chg.cls === "pw-down" ? "down" : "");
+    if (chgEl) { chgEl.textContent = chg.html; chgEl.className = "pw-card-chg " + chg.cls; }
+  });
+
+  var dateEl = document.getElementById("pw-latest-date");
+  if (dateEl) dateEl.textContent = "As of " + (latest.Date || "—");
+}
+
+function renderPriceTable() {
+  var sel = document.getElementById("price-range-select");
+  var days = sel ? parseInt(sel.value) : 30;
+  var rows = cachedPriceData.slice(0, days);
+  var tbody = document.getElementById("pw-tbody");
+  if (!tbody) return;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted2);padding:20px;">No price data loaded</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(r, i) {
+    var prev = rows[i + 1] || {};
+    function cell(key) {
+      var chg = fmtChg(r[key], prev[key]);
+      var val = fmt(r[key]);
+      return '<td class="' + chg.cls + '">' + val + '</td>';
+    }
+    return "<tr><td>" + (r.Date || "—") + "</td>" +
+      cell("Benchmark") + cell("Spot") + cell("Front (Nodal)") + "</tr>";
+  }).join("");
+
+  var upd = document.getElementById("pw-last-updated");
+  if (upd && priceLastFetchedUI) upd.textContent = "Last updated: " + new Date(priceLastFetchedUI).toLocaleTimeString();
+}
+
+var priceLastFetchedUI = null;
+
+async function loadPriceData(manual) {
+  try {
+    var res = await fetch(SERVER + "/prices");
+    var json = await res.json();
+    if (json.data && json.data.length) {
+      cachedPriceData = json.data;
+      priceLastFetchedUI = json.lastFetched || Date.now();
+      updateTicker();
+      renderPriceWidget();
+      renderPriceTable();
+    }
+  } catch(e) { console.error("loadPriceData error:", e); }
+}
+
+// Also render price widget when switching to prices tab
+var _origSwitchTab = switchTab;
+switchTab = function(name) {
+  _origSwitchTab(name);
+  if (name === "prices") { renderPriceWidget(); renderPriceTable(); }
+};
 
 // Init
 renderSuggestions();
