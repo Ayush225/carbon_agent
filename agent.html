@@ -239,7 +239,7 @@
 const SERVER = (
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://localhost:3456"
-    : window.RAILWAY_SERVER_URL || "https://carbonagent-production.up.railway.app"
+    : window.RAILWAY_SERVER_URL || "PASTE_YOUR_RAILWAY_URL_HERE"
 );
 const REFRESH_INTERVAL = 2 * 60 * 1000;
 const CHAT_API = `${SERVER}/chat`;
@@ -264,7 +264,7 @@ const countdown = document.getElementById("countdown");
 // ── Server polling ─────────────────────────────────────────────────────────────
 async function fetchSources(manual = false) {
   try {
-    const res = await fetch(`${SERVER}/sources`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`${SERVER}/sources`, { signal: AbortSignal.timeout(15000) });
     const json = await res.json();
     const prev = sources.map(s => s.name).join(",");
     sources = json.sources || [];
