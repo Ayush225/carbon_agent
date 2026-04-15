@@ -414,6 +414,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /prices — return cached price data
+  if (pathname === "/prices" && req.method === "GET") {
+    respond(res, 200, {
+      data: priceData.slice(0, 400),
+      lastFetched: priceLastFetched,
+      error: priceFetchError,
+      count: priceData.length
+    });
+    return;
+  }
+
   respond(res, 404, { error: "Not found" });
 });
 
