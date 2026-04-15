@@ -483,7 +483,7 @@ function priceDataSummary() {
   const fetched = priceLastFetched ? new Date(priceLastFetched).toLocaleString() : "unknown";
   const rows = priceData.slice(0, 30); // last 30 rows for context
   const csvText = ["Date,Benchmark,Spot,Front (Nodal)"]
-    .concat(rows.map(r => `${r.Date},${r.Benchmark||""},${r.Spot||""},${r["Front (Nodal)"]||""}`))
+    .concat(rows.map(r => `${r.Date},${(r.Benchmark||"").replace(/[$]/g,"")},${(r.Spot||"").replace(/[$]/g,"")},${(r["Front (Nodal)"]||"").replace(/[$]/g,"")}`))
     .join("\n");
   return "Latest LCFS price data (as of " + fetched + "):\nMost recent date: " + latest.Date + "\n\n" + csvText;
 }

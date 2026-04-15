@@ -531,7 +531,7 @@
               <tbody id="pd-tbody"></tbody>
             </table>
           </div>
-          <div id="pd-footer" id="pd-updated">—</div>
+          <div id="pd-footer">—</div>
         </div>
       </div>
       <span id="header-meta">—</span>
@@ -882,8 +882,8 @@ function updateTicker() {
   var prev   = cachedPriceData[1] || {};
 
   // Ticker button
-  var val = parseFloat(latest.Benchmark);
-  var prevVal = parseFloat(prev.Benchmark);
+  var val = parseFloat(String(latest.Benchmark || "").replace(/[$,]/g, ""));
+  var prevVal = parseFloat(String(prev.Benchmark || "").replace(/[$,]/g, ""));
   var tickerValEl = document.getElementById("ticker-val");
   var tickerChgEl = document.getElementById("ticker-chg");
   if (tickerValEl) {
@@ -909,8 +909,8 @@ function updateTicker() {
     var vEl = document.getElementById(f.valId);
     var cEl = document.getElementById(f.chgId);
     if (!vEl) return;
-    var v = parseFloat(latest[f.key]);
-    var p = parseFloat(prev[f.key]);
+    var v = parseFloat(String(latest[f.key] || "").replace(/[$,]/g, ""));
+    var p = parseFloat(String(prev[f.key] || "").replace(/[$,]/g, ""));
     vEl.textContent = isNaN(v) ? "—" : "$" + v.toFixed(2);
     if (!isNaN(v) && !isNaN(p)) {
       var d = v - p;
@@ -938,7 +938,7 @@ function renderDropdownTable() {
   tbody.innerHTML = rows.map(function(r, i) {
     var prev = rows[i + 1] || {};
     function cell(key) {
-      var v = parseFloat(r[key]), p = parseFloat(prev[key]);
+      var v = parseFloat(String(r[key]||"").replace(/[$,]/g,"")), p = parseFloat(String(prev[key]||"").replace(/[$,]/g,""));
       var val = isNaN(v) ? "—" : "$" + v.toFixed(2);
       var cls = (!isNaN(v) && !isNaN(p)) ? (v > p ? "pw-up" : v < p ? "pw-down" : "") : "";
       return "<td class='" + cls + "'>" + val + "</td>";
@@ -950,13 +950,13 @@ function renderDropdownTable() {
 // ── Price Widget ──────────────────────────────────────────────────────────────
 function fmt(val) {
   if (!val || val === "") return "—";
-  var n = parseFloat(val);
+  var n = parseFloat(String(val).replace(/[$,]/g, ""));
   return isNaN(n) ? "—" : "$" + n.toFixed(2);
 }
 
 function fmtChg(curr, prev) {
   if (!curr || !prev || curr === "" || prev === "") return { html: "", cls: "" };
-  var c = parseFloat(curr), p = parseFloat(prev);
+  var c = parseFloat(String(curr).replace(/[$,]/g, "")), p = parseFloat(String(prev).replace(/[$,]/g, ""));
   if (isNaN(c) || isNaN(p) || p === 0) return { html: "", cls: "" };
   var diff = c - p;
   var pct = (diff / p * 100);
