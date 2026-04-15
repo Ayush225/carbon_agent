@@ -65,7 +65,7 @@ function qdrantHost() {
 async function embed(texts) {
   const payload = JSON.stringify({ inputs: texts, options: { wait_for_model: true } });
   const res = await httpsRequest({
-    hostname: "api-inference.huggingface.co",
+    hostname: "router.huggingface.co",
     path: `/pipeline/feature-extraction/${EMBED_MODEL}`,
     method: "POST",
     headers: {
