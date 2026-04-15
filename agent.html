@@ -347,52 +347,15 @@ setInterval(() => {
   if (secs === 0) fetchSources();
 }, 1000);
 
-// ── Chat ───────────────────────────────────────────────────────────────────────
+// ── Chat (RAG mode — server handles retrieval, no local data needed) ───────────
 function buildSystemPrompt() {
-  // Flatten all articles across all sources, sort by date descending (latest first)
-  const allArticles = sources.flatMap(s => Array.isArray(s.data) ? s.data : [s.data]);
-  allArticles.sort((a, b) => {
-    const da = a.date ? new Date(a.date) : new Date(0);
-    const db = b.date ? new Date(b.date) : new Date(0);
-    return db - da;
-  });
-  const ctx = JSON.stringify(allArticles, null, 2);
-  const total = allArticles.length;
-  const latest = allArticles[0]?.date ? new Date(allArticles[0].date).toDateString() : "unknown";
-  const oldest = allArticles[total-1]?.date ? new Date(allArticles[total-1].date).toDateString() : "unknown";
-
-  return `You are an intelligent news and market intelligence assistant powered by Llama 3.3 70B (via Groq).
-
-You have access to ${total} news articles/items, sorted from latest to oldest (date range: ${latest} → ${oldest}).
-
-BEHAVIOR RULES:
-- Always prioritize the most recent articles when answering questions unless the user asks for older news.
-- When listing articles, always show them in reverse chronological order (newest first).
-- For each article you reference, always mention: title, date, and key insight.
-- When asked for "latest news" or "recent updates", show the top 5 most recent articles.
-- Group results by market_categories or other_labels when relevant.
-- If asked about a topic (e.g. "hydrogen", "solar"), filter articles by matching title, content, market_categories, or other_labels.
-- Summarize content clearly — do not dump raw JSON. Write in clean readable sentences.
-- If asked which model you are, say "Llama 3.3 70B running on Groq".
-- Format dates as human-readable (e.g. "Feb 17, 2026") not ISO strings.
-- If an article has a post_link, include it when referencing that article.
-
-ARTICLE DATA (sorted latest first):
-\`\`\`json
-${ctx}
-\`\`\``;
+  return ""; // RAG server builds its own prompt from Qdrant search results
 }
 
 function addWelcome() {
-  const allArticles = sources.flatMap(s => Array.isArray(s.data) ? s.data : [s.data]);
-  allArticles.sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
-  const total = allArticles.length;
-  const cats = [...new Set(allArticles.flatMap(a => a.market_categories||[]))];
-  const latest = allArticles[0];
-  const folder = currentWatchDir ? `<br><br>📁 Drop <code>.json</code> files into: <code style="word-break:break-all">${currentWatchDir}</code>` : "";
-  const latestSnippet = latest ? `<br><br>🗞️ Latest article: <strong>${latest.title}</strong> <span style="color:var(--muted);font-size:12px">(${latest.date ? new Date(latest.date).toDateString() : "no date"})</span>` : "";
-  const catsSnippet = cats.length ? `<br>📂 Categories: ${cats.map(c=>`<code>${c}</code>`).join(", ")}` : "";
-  appendMsg("assistant", `Hello! I'm your market intelligence assistant (Llama 3.3 70B on Groq).<br>I have <strong>${total}</strong> article${total!==1?"s":""} loaded, sorted latest first.${latestSnippet}${catsSnippet}${folder}<br><br>Try asking:<br>• "What are the latest news articles?"<br>• "Summarize news about hydrogen"<br>• "Show all articles from February 2026"<br>• "What are the top stories in Sustainable Fuels?"<br>• "Find articles mentioning India"`);
+  const total = sources.reduce((a, s) => a + (s.records || 0), 0);
+  const folder = currentWatchDir ? `<br><br>📁 Watching: <code style="word-break:break-all">${currentWatchDir}</code>` : "";
+  appendMsg("assistant", `Hello! I'm your market intelligence assistant (Llama 3.3 70B on Groq).<br>I have <strong>${total}</strong> article${total!==1?"s":""} indexed and ready.${folder}<br><br>Try asking:<br>• "What are the latest news articles?"<br>• "Summarize news about hydrogen"<br>• "Show all articles from February 2026"<br>• "What are the top stories in Sustainable Fuels?"<br>• "Find articles mentioning India"`);
 }
 
 function addSysMsg(text, type = "") {
