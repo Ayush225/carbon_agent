@@ -25,18 +25,23 @@ const PORT           = process.env.PORT || 3456;
 const WATCH_DIR      = path.resolve(process.env.DATA_DIR || "./data");
 const POLL_INTERVAL  = 5 * 60 * 1000;
 const GROQ_API_KEY   = process.env.GROQ_API_KEY   || "";
-const GROQ_MODEL     = "llama-3.1-8b-instant"; // 30k TPM free limit
+const GROQ_MODEL     = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 const QDRANT_URL     = (process.env.QDRANT_URL     || "").replace(/\/$/, "");
 const QDRANT_API_KEY = process.env.QDRANT_API_KEY  || "";
 const HF_API_KEY     = process.env.HF_API_KEY      || "";
 const COLLECTION     = "articles";
 const EMBED_MODEL    = "sentence-transformers/all-MiniLM-L6-v2";
 const TOP_K          = 3;
+const PRICE_API_URL = process.env.PRICE_API_URL || "https://apifast.ckinetics.com/v1/?auth-key=q1PZttqXGCcs&api-id=CF_CALCFS_9312853";
+const PRICE_REFRESH = 4 * 60 * 60 * 1000;
 
 let indexedFiles  = {};
 let totalArticles = 0;
 let lastIndexed   = null;
 let qdrantReady   = false;
+let priceData     = [];   // cached CSV rows
+let priceLastFetched = null;
+let priceFetchError  = null;
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 
@@ -253,6 +258,15 @@ Author: ${p.author||"—"} | Link: ${p.post_link || "—"}
 ${snippet}`;
   }).join("\n\n---\n\n");
 
+  // Add live price data if query is price-related
+  const priceContext = isPriceQuery(question)
+    ? "\n\n=== LIVE LCFS PRICE DATA ===\n" + priceDataSummary()
+    : "";
+
+  const priceInstructions = isPriceQuery(question)
+    ? "\nPRICE DATA: Present the price data as a markdown table (Date|Benchmark|Spot|Front Nodal). Write a short trend summary after the table. Prefix the table with [PRICE_TABLE]."
+    : "";
+
   const system = `You are an expert market analyst assistant trained on cCarbon proprietary content.
 
 Use ONLY the indexed documents provided to you (news, insights, reports, webinars, price commentaries, articles).
@@ -267,10 +281,27 @@ TASKS:
 7. If a download link or post_link is available, include it.
 8. Do NOT hallucinate information outside the provided documents.
 
-OUTPUT FORMAT:
-- Start with a short executive summary (3-5 bullet points).
-- Then provide detailed insights grouped by date (newest first).
-- For each document mention: title, document type, author (if available), publication date, key takeaways, and source link.
+OUTPUT FORMAT — FOLLOW EXACTLY:
+
+Start with:
+**Executive Summary**
+• [bullet 1]
+• [bullet 2]
+• [bullet 3 max]
+
+Then for EACH document, output EXACTLY this block (no bullet points inside):
+
+---
+**[Title of document]**
+**Type:** [post_type] | **Author:** [author] | **Date:** [readable date]
+**Summary:** [Write 2-3 sentences as a prose paragraph. No bullet points here.]
+[SOURCE_LINK: post_link_url]
+
+RULES:
+- Use exactly the format above. Do not use * or + for lists inside document blocks.
+- [SOURCE_LINK: url] must use the actual post_link value from the document data.
+- Never use bullet points or dashes inside the Summary field — prose only.
+- Separate each document block with a blank line.
 
 DATE HANDLING:
 - Always convert dates into readable format (e.g., "21 November 2025").
@@ -282,7 +313,7 @@ TONE: Professional, analytical, neutral, data-driven.
 IMPORTANT: If multiple documents contradict each other, mention the difference. Never fabricate numbers, prices, or policy statements.
 
 Retrieved documents (most relevant first):
-${context || "No relevant documents found for this query."}`;
+${context || "No relevant documents found for this query."}${priceContext}${priceInstructions}`;
 
   const payload = JSON.stringify({
     model: GROQ_MODEL,
@@ -386,6 +417,71 @@ const server = http.createServer((req, res) => {
   respond(res, 404, { error: "Not found" });
 });
 
+// ── Price API ──────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+  return lines.slice(1).map(line => {
+    const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+    const row = {};
+    headers.forEach((h, i) => row[h] = vals[i] || "");
+    return row;
+  }).filter(r => r[headers[0]]); // skip empty rows
+}
+
+async function fetchPriceData() {
+  try {
+    log("Fetching live price data from API...");
+    const data = await new Promise((resolve, reject) => {
+      const urlObj = new URL(PRICE_API_URL);
+      const options = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname + urlObj.search,
+        method: "GET",
+        headers: { "User-Agent": "cCarbon-Agent/1.0" }
+      };
+      const req = https.request(options, res => {
+        let raw = "";
+        res.on("data", c => raw += c);
+        res.on("end", () => resolve(raw));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+
+    const rows = parseCSV(data);
+    if (rows.length === 0) throw new Error("Empty or invalid CSV response");
+
+    // Sort by date descending
+    rows.sort((a, b) => new Date(b.Date || b.date || "") - new Date(a.Date || a.date || ""));
+
+    priceData = rows;
+    priceLastFetched = Date.now();
+    priceFetchError = null;
+    log(`Price data fetched: ${rows.length} rows, latest: ${rows[0]?.Date || "unknown"}`);
+  } catch (e) {
+    priceFetchError = e.message;
+    log(`Price API error: ${e.message}`);
+  }
+}
+
+function priceDataSummary() {
+  if (!priceData.length) return "No price data available.";
+  const latest = priceData[0];
+  const fetched = priceLastFetched ? new Date(priceLastFetched).toLocaleString() : "unknown";
+  const rows = priceData.slice(0, 30); // last 30 rows for context
+  const csvText = ["Date,Benchmark,Spot,Front (Nodal)"]
+    .concat(rows.map(r => `${r.Date},${r.Benchmark||""},${r.Spot||""},${r["Front (Nodal)"]||""}`))
+    .join("\n");
+  return "Latest LCFS price data (as of " + fetched + "):\nMost recent date: " + latest.Date + "\n\n" + csvText;
+}
+
+function isPriceQuery(question) {
+  const q = question.toLowerCase();
+  return /price|benchmark|spot|nodal|lcfs credit|credit value|\$|cost|rate|trading|market price|latest price|current price/.test(q);
+}
+
 // Boot
 async function boot() {
   log("Booting RAG Data Agent...");
@@ -402,6 +498,10 @@ async function boot() {
       log(`Boot error: ${e.message}`);
     }
   }
+  // Fetch price data on boot and refresh every 4 hours
+  await fetchPriceData();
+  setInterval(fetchPriceData, PRICE_REFRESH);
+
   server.listen(PORT, () => log(`Listening on port ${PORT}`));
 }
 

@@ -237,6 +237,35 @@
   #send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   #input-hint { font-size: 10px; color: var(--muted2); padding: 4px 20px 8px; font-family: var(--mono); }
+
+  /* Price table */
+  .price-table-wrap { margin-top: 10px; }
+  .price-table-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--muted);
+    font-family: var(--mono); margin-bottom: 6px;
+  }
+  .price-table-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .price-table-inner { display: none; overflow-x: auto; }
+  .price-table-inner.open { display: block; }
+  .price-table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+    font-family: var(--mono); margin-top: 4px;
+  }
+  .price-table th {
+    padding: 6px 12px; text-align: left; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); border-bottom: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+  .price-table td {
+    padding: 5px 12px; border-bottom: 1px solid var(--border);
+    color: var(--text); white-space: nowrap;
+  }
+  .price-table tr:hover td { background: var(--bg3); }
+  .price-val-up { color: var(--green); }
+  .price-val-down { color: var(--red); }
 </style>
 </head>
 <body>
@@ -485,16 +514,58 @@ function appendMsg(role, html) {
   return row;
 }
 
+function buildPriceTable(rows) {
+  if (!rows || !rows.length) return "";
+  const id = "pt" + Date.now();
+  const headers = ["Date", "Benchmark", "Spot", "Front (Nodal)"];
+  const rowsHtml = rows.map((r, i) => {
+    const prev = rows[i+1];
+    const benchVal = parseFloat(r.Benchmark);
+    const prevBench = prev ? parseFloat(prev.Benchmark) : null;
+    const cls = prevBench !== null ? (benchVal > prevBench ? "price-val-up" : benchVal < prevBench ? "price-val-down" : "") : "";
+    return `<tr>
+      <td>${r.Date||""}</td>
+      <td class="${cls}">${r.Benchmark ? "$"+parseFloat(r.Benchmark).toFixed(2) : "—"}</td>
+      <td>${r.Spot ? "$"+parseFloat(r.Spot).toFixed(2) : "—"}</td>
+      <td>${r["Front (Nodal)"] ? "$"+parseFloat(r["Front (Nodal)"]).toFixed(2) : "—"}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="price-table-wrap">
+    <div class="price-table-toggle" onclick="document.getElementById('${id}').classList.toggle('open');this.textContent=document.getElementById('${id}').classList.contains('open')?'▲ Hide price table':'▼ Show price table (${rows.length} rows)'">▼ Show price table (${rows.length} rows)</div>
+    <div class="price-table-inner" id="${id}">
+      <table class="price-table">
+        <thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+let cachedPriceData = [];
+async function loadPriceData() {
+  try {
+    const res = await fetch(`${SERVER}/prices`);
+    const json = await res.json();
+    if (json.data && json.data.length) cachedPriceData = json.data;
+  } catch(e) {}
+}
+
 function formatReply(text) {
+  text = text.replace(/\[PRICE_TABLE\]/g, buildPriceTable(cachedPriceData.slice(0, 30)));
   return text
-    .replace(/```([\w]*)\n?([\s\S]*?)```/g, (_, lang, code) => `<pre>${escHtml(code.trim())}</pre>`)
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, function(_, code) { return "<pre>"+escHtml(code.trim())+"</pre>"; })
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^• /gm, "• ")
+    .replace(/^## (.+)$/gm, "<h3>$1</h3>")
+    .replace(/\[SOURCE_LINK:\s*(https?:\/\/[^\]]+)\]/g, function(_, u) {
+      return '<a href="'+u+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:5px 12px;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent);border-radius:6px;font-size:12px;font-family:var(--mono);text-decoration:none;font-weight:500;">&#x1F517; View Source</a>';
+    })
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, function(_, t, u) {
+      return '<a href="'+u+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">'+t+'</a>';
+    })
     .replace(/\n/g, "<br>");
 }
-
 function escHtml(s) {
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
@@ -563,7 +634,9 @@ setInterval(() => {
 // Init
 renderSuggestions();
 fetchSources();
+loadPriceData();
 setInterval(() => fetchSources(), REFRESH_INTERVAL);
+setInterval(() => loadPriceData(), 4 * 60 * 60 * 1000);
 </script>
 </body>
 </html>
