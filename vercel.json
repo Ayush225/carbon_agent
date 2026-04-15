@@ -1,15 +1,11 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "agent.html",
-      "use": "@vercel/static"
-    }
+    { "src": "agent.html", "use": "@vercel/static" },
+    { "src": "ccarbon_logo.svg", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/agent.html"
-    }
+    { "src": "/ccarbon_logo.svg", "dest": "/ccarbon_logo.svg" },
+    { "src": "/(.*)", "dest": "/agent.html" }
   ]
 }
