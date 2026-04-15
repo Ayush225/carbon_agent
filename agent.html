@@ -3,239 +3,303 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>JSON Data Agent</title>
+<title>cCarbon CFS Assistant</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg: #0e0f11;
-    --bg2: #161719;
-    --bg3: #1e2024;
-    --border: #2a2d33;
-    --border2: #363a42;
-    --text: #e8eaf0;
-    --muted: #7a7f8c;
-    --accent: #4f9cf9;
-    --accent-dim: #1a3558;
-    --green: #3ecf8e;
-    --green-dim: #0f3626;
-    --amber: #f59e0b;
-    --amber-dim: #3a2800;
-    --red: #f87171;
-    --mono: 'IBM Plex Mono', monospace;
-    --sans: 'IBM Plex Sans', sans-serif;
+    --bg:        #0d1117;
+    --bg2:       #161b22;
+    --bg3:       #1c2128;
+    --bg4:       #21262d;
+    --border:    #30363d;
+    --border2:   #3d444d;
+    --text:      #e6edf3;
+    --muted:     #7d8590;
+    --muted2:    #5a6270;
+    --brand-blue:   #203A6B;
+    --brand-orange: #E3662B;
+    --brand-orange-dim: #3d1f0f;
+    --brand-blue-dim:   #0d1e35;
+    --accent:    #E3662B;
+    --accent-dim:#3d1f0f;
+    --green:     #3fb950;
+    --green-dim: #0d2e16;
+    --red:       #f85149;
+    --amber:     #d29922;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --radius: 8px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; overflow: hidden; }
 
-  #app { display: flex; height: 100vh; overflow: hidden; }
+  #app { display: flex; height: 100vh; }
 
-  /* ── Sidebar ── */
+  /* ── SIDEBAR ─────────────────────────────────────────────────── */
   #sidebar {
-    width: 260px; min-width: 260px;
+    width: 300px; min-width: 300px;
     background: var(--bg2);
     border-right: 1px solid var(--border);
     display: flex; flex-direction: column;
-    overflow: hidden;
   }
 
-  #sidebar-top {
-    padding: 20px 16px 12px;
+  /* Logo area */
+  #sidebar-logo {
+    padding: 20px 16px 16px;
     border-bottom: 1px solid var(--border);
+    background: var(--brand-blue);
+  }
+  #sidebar-logo img {
+    width: 100%; max-height: 44px; object-fit: contain; object-position: left;
+    filter: brightness(0) invert(1);
+  }
+  #sidebar-tagline {
+    font-size: 10px; color: rgba(255,255,255,0.6);
+    margin-top: 6px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: var(--mono);
   }
 
-  .logo { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-  .logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-  .logo-icon svg { width: 16px; height: 16px; fill: white; }
-  .logo-text { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
-  .logo-sub { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
-
-  #server-status {
-    display: flex; align-items: center; gap: 6px;
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 6px; padding: 7px 10px; font-size: 12px;
+  /* Server status */
+  #sidebar-status {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
   }
   .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
-  .dot.red { background: var(--red); }
-  #status-text { color: var(--muted); flex: 1; }
-  #refresh-btn {
-    background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 13px; padding: 0 2px; line-height: 1;
+  .dot.amber { background: var(--amber); }
+  .dot.red   { background: var(--red); }
+  #status-text { font-size: 11px; color: var(--muted); flex: 1; font-family: var(--mono); }
+  #refresh-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 4px; }
+  #refresh-btn:hover { color: var(--accent); background: var(--bg3); }
+
+  /* Tabs */
+  #sidebar-tabs {
+    display: flex; border-bottom: 1px solid var(--border);
   }
-  #refresh-btn:hover { color: var(--accent); }
+  .tab-btn {
+    flex: 1; padding: 9px 0; font-size: 11px; font-weight: 500;
+    text-align: center; cursor: pointer; color: var(--muted);
+    background: none; border: none; border-bottom: 2px solid transparent;
+    transition: all 0.15s; letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .tab-btn:hover { color: var(--text); background: var(--bg3); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  #source-list { flex: 1; overflow-y: auto; padding: 10px 8px; }
-  #source-list::-webkit-scrollbar { width: 4px; }
-  #source-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  /* Tab panels */
+  .tab-panel { display: none; flex: 1; overflow-y: auto; flex-direction: column; }
+  .tab-panel.active { display: flex; }
+  .tab-panel::-webkit-scrollbar { width: 3px; }
+  .tab-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
+  /* Sources panel */
+  #panel-sources { padding: 8px; }
   .source-item {
-    padding: 9px 10px; border-radius: 6px;
-    border: 1px solid transparent; margin-bottom: 3px;
-    cursor: default;
+    padding: 8px 10px; border-radius: 6px; border: 1px solid transparent;
+    margin-bottom: 3px; cursor: default;
   }
   .source-item:hover { background: var(--bg3); border-color: var(--border); }
-  .source-name { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--accent); margin-bottom: 3px; }
-  .source-meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; }
+  .source-name { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--accent); margin-bottom: 2px; }
+  .source-meta { font-size: 10px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
   .source-badge {
-    font-size: 10px; font-family: var(--mono);
-    background: var(--green-dim); color: var(--green);
-    padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+    font-size: 9px; font-family: var(--mono);
+    background: var(--accent-dim); color: var(--accent);
+    padding: 1px 5px; border-radius: 3px;
   }
 
-  #sidebar-footer {
-    padding: 12px;
-    border-top: 1px solid var(--border);
-    font-size: 11px; color: var(--muted); line-height: 1.6;
+  /* History panel */
+  #panel-history { padding: 8px; gap: 4px; }
+  .history-item {
+    padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+    cursor: pointer; background: var(--bg3); transition: all 0.15s;
   }
-  #sidebar-footer code { font-family: var(--mono); color: var(--accent); font-size: 11px; }
-  #last-sync { margin-top: 6px; font-family: var(--mono); font-size: 10px; color: var(--border2); }
+  .history-item:hover { border-color: var(--accent); background: var(--bg4); }
+  .history-q { font-size: 12px; color: var(--text); margin-bottom: 3px; line-height: 1.4; }
+  .history-time { font-size: 10px; color: var(--muted2); font-family: var(--mono); }
+  .history-empty { padding: 20px 12px; color: var(--muted2); font-size: 12px; text-align: center; line-height: 1.6; }
+
+  /* Suggestions panel */
+  #panel-suggest { padding: 8px; gap: 4px; }
+  .suggest-item {
+    padding: 9px 10px; border-radius: 6px; border: 1px solid var(--border);
+    cursor: pointer; background: var(--bg3); transition: all 0.15s;
+    font-size: 12px; color: var(--muted); line-height: 1.4;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .suggest-item:hover { border-color: var(--accent); color: var(--text); background: var(--bg4); }
+  .suggest-icon { color: var(--accent); font-size: 13px; margin-top: 1px; flex-shrink: 0; }
+  .suggest-cat {
+    font-size: 9px; font-family: var(--mono); text-transform: uppercase;
+    color: var(--muted2); letter-spacing: 0.06em; margin-bottom: 3px;
+  }
+
+  /* Sidebar footer */
+  #sidebar-footer {
+    padding: 10px 12px; border-top: 1px solid var(--border);
+    font-size: 10px; color: var(--muted2); font-family: var(--mono);
+    display: flex; justify-content: space-between; align-items: center;
+  }
   #countdown { color: var(--amber); }
 
-  /* ── Main chat ── */
+  /* ── MAIN CHAT ────────────────────────────────────────────────── */
   #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   #chat-header {
-    padding: 16px 20px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
     background: var(--bg2);
+    display: flex; align-items: center; gap: 12px;
   }
-  #chat-header h1 { font-size: 14px; font-weight: 600; flex: 1; }
-  #header-meta { font-size: 11px; font-family: var(--mono); color: var(--muted); }
+  #chat-header-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--brand-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  #chat-title { font-size: 14px; font-weight: 600; }
+  #chat-subtitle { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  #header-meta { font-size: 11px; font-family: var(--mono); color: var(--muted2); margin-left: auto; }
 
   #messages {
-    flex: 1; overflow-y: auto;
-    padding: 20px; display: flex; flex-direction: column; gap: 16px;
-    background: var(--bg);
+    flex: 1; overflow-y: auto; padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
   }
   #messages::-webkit-scrollbar { width: 4px; }
   #messages::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-  .msg-row { display: flex; gap: 10px; max-width: 820px; }
-  .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-row { display: flex; gap: 10px; max-width: 860px; }
+  .msg-row.user { align-self: flex-end; flex-direction: row-reverse; max-width: 70%; }
   .msg-row.assistant { align-self: flex-start; }
-  .msg-row.system { align-self: center; }
 
   .avatar {
-    width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 600; font-family: var(--mono);
-    margin-top: 2px;
+    font-size: 11px; font-weight: 600; font-family: var(--mono); margin-top: 2px;
   }
-  .avatar.user { background: var(--accent-dim); color: var(--accent); }
-  .avatar.assistant { background: var(--green-dim); color: var(--green); }
+  .avatar.user { background: var(--bg4); color: var(--muted); border: 1px solid var(--border); }
+  .avatar.assistant { background: var(--brand-blue); color: white; font-size: 13px; }
 
   .bubble {
-    padding: 10px 14px; border-radius: 8px;
-    font-size: 13.5px; line-height: 1.65;
-    border: 1px solid var(--border);
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13.5px; line-height: 1.7; border: 1px solid var(--border);
   }
-  .msg-row.user .bubble { background: var(--bg3); border-color: var(--border2); }
-  .msg-row.assistant .bubble { background: var(--bg2); }
+  .msg-row.user .bubble { background: var(--brand-blue-dim); border-color: var(--brand-blue); color: var(--text); border-radius: 10px 2px 10px 10px; }
+  .msg-row.assistant .bubble { background: var(--bg2); border-radius: 2px 10px 10px 10px; }
 
   .bubble pre {
     background: var(--bg); border: 1px solid var(--border);
-    border-radius: 5px; padding: 10px 12px; margin: 8px 0;
+    border-radius: 6px; padding: 10px 12px; margin: 8px 0;
     font-family: var(--mono); font-size: 12px;
     overflow-x: auto; white-space: pre-wrap; word-break: break-word;
   }
-  .bubble code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .bubble code { font-family: var(--mono); font-size: 12px; color: var(--accent); background: var(--bg3); padding: 1px 4px; border-radius: 3px; }
   .bubble strong { color: var(--text); font-weight: 600; }
+  .bubble h3 { font-size: 13px; font-weight: 600; color: var(--accent); margin: 10px 0 4px; }
+  .bubble ul { padding-left: 16px; }
+  .bubble li { margin: 3px 0; }
 
   .sys-msg {
-    font-size: 11px; font-family: var(--mono); color: var(--muted);
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: 4px; padding: 5px 12px; text-align: center;
+    align-self: center; font-size: 11px; font-family: var(--mono);
+    color: var(--muted); background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 12px;
   }
   .sys-msg.ok { color: var(--green); border-color: var(--green-dim); background: var(--green-dim); }
-  .sys-msg.warn { color: var(--amber); border-color: var(--amber-dim); background: var(--amber-dim); }
 
-  .typing { display: flex; gap: 4px; padding: 4px 0; }
+  .typing { display: flex; gap: 4px; padding: 4px 2px; }
   .typing span { width: 6px; height: 6px; background: var(--muted); border-radius: 50%; animation: blink 1.2s ease-in-out infinite; }
   .typing span:nth-child(2) { animation-delay: 0.2s; }
   .typing span:nth-child(3) { animation-delay: 0.4s; }
   @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
 
-  /* ── Input ── */
+  /* Input */
   #input-area {
-    padding: 16px 20px; border-top: 1px solid var(--border);
+    padding: 14px 20px; border-top: 1px solid var(--border);
     background: var(--bg2); display: flex; gap: 10px; align-items: flex-end;
   }
   #user-input {
     flex: 1; background: var(--bg3); border: 1px solid var(--border2);
-    border-radius: 8px; padding: 10px 14px;
+    border-radius: 10px; padding: 10px 14px;
     color: var(--text); font-family: var(--sans); font-size: 13.5px;
-    resize: none; min-height: 42px; max-height: 120px; outline: none;
-    transition: border-color 0.15s;
-    field-sizing: content;
+    resize: none; min-height: 44px; max-height: 140px; outline: none;
+    transition: border-color 0.15s; field-sizing: content;
   }
   #user-input:focus { border-color: var(--accent); }
-  #user-input::placeholder { color: var(--muted); }
+  #user-input::placeholder { color: var(--muted2); }
 
   #send-btn {
-    height: 42px; padding: 0 18px; background: var(--accent);
-    border: none; border-radius: 8px; color: white;
-    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    height: 44px; padding: 0 20px;
+    background: var(--accent); border: none; border-radius: 10px;
+    color: white; font-family: var(--sans); font-size: 13px; font-weight: 600;
     cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
   }
   #send-btn:hover { opacity: 0.85; }
   #send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-  #no-server {
-    padding: 32px 20px; text-align: center; max-width: 480px; margin: auto;
-  }
-  #no-server h2 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
-  #no-server p { color: var(--muted); font-size: 13px; line-height: 1.7; margin-bottom: 8px; }
-  #no-server code { font-family: var(--mono); font-size: 12px; background: var(--bg3); padding: 10px 16px; border-radius: 6px; display: block; text-align: left; margin: 8px 0; color: var(--accent); border: 1px solid var(--border); }
-  #retry-btn {
-    margin-top: 12px; padding: 8px 20px; background: var(--accent);
-    border: none; border-radius: 6px; color: white; font-size: 13px; cursor: pointer;
-  }
+  #input-hint { font-size: 10px; color: var(--muted2); padding: 4px 20px 8px; font-family: var(--mono); }
 </style>
 </head>
 <body>
 <div id="app">
+
+  <!-- SIDEBAR -->
   <div id="sidebar">
-    <div id="sidebar-top">
-      <div class="logo">
-        <div class="logo-icon">
-          <svg viewBox="0 0 16 16"><path d="M2 3h12v2H2zm0 4h8v2H2zm0 4h10v2H2z"/></svg>
-        </div>
-        <div>
-          <div class="logo-text">Data Agent</div>
-          <div class="logo-sub">JSON folder watcher</div>
-        </div>
-      </div>
-      <div id="server-status">
-        <div class="dot amber" id="status-dot"></div>
-        <span id="status-text">Connecting…</span>
-        <button id="refresh-btn" title="Refresh now" onclick="fetchSources(true)">↻</button>
-      </div>
+    <div id="sidebar-logo">
+      <img src="ccarbon_logo.svg" alt="cCarbon" />
+      <div id="sidebar-tagline">CFS Intelligence Assistant</div>
     </div>
-    <div id="source-list"><div style="padding:12px;color:var(--muted);font-size:12px;">Loading sources…</div></div>
+
+    <div id="sidebar-status">
+      <div class="dot amber" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+      <button id="refresh-btn" title="Refresh" onclick="fetchSources(true)">↻</button>
+    </div>
+
+    <div id="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('sources')" id="tab-sources">Sources</button>
+      <button class="tab-btn" onclick="switchTab('history')" id="tab-history">History</button>
+      <button class="tab-btn" onclick="switchTab('suggest')" id="tab-suggest">Suggest</button>
+    </div>
+
+    <div class="tab-panel active" id="panel-sources">
+      <div style="padding:12px;color:var(--muted);font-size:12px;">Loading sources…</div>
+    </div>
+
+    <div class="tab-panel" id="panel-history">
+      <div class="history-empty">Your recent questions<br>will appear here.</div>
+    </div>
+
+    <div class="tab-panel" id="panel-suggest">
+      <!-- filled by JS -->
+    </div>
+
     <div id="sidebar-footer">
-      Drop <code>.json</code> files into your watched folder — they'll appear here automatically.
-      <div id="last-sync">Next sync in <span id="countdown">—</span></div>
+      <span id="sync-label">Next sync in <span id="countdown">—</span></span>
+      <span id="article-count" style="color:var(--muted);">—</span>
     </div>
   </div>
 
+  <!-- MAIN -->
   <div id="main">
     <div id="chat-header">
-      <h1>AI Data Agent</h1>
+      <div id="chat-header-icon">⚡</div>
+      <div>
+        <div id="chat-title">cCarbon CFS Assistant</div>
+        <div id="chat-subtitle">Powered by Llama 3.3 70B · Semantic Search</div>
+      </div>
       <span id="header-meta">—</span>
     </div>
+
     <div id="messages"></div>
+    <div id="input-hint">Press Enter to send · Shift+Enter for new line</div>
     <div id="input-area">
-      <textarea id="user-input" placeholder="Ask anything about your JSON data…" rows="1"></textarea>
-      <button id="send-btn" disabled>Send</button>
+      <textarea id="user-input" placeholder="Ask about Clean Fuel Standards, LCFS, carbon markets, hydrogen…" rows="1"></textarea>
+      <button id="send-btn" disabled>Ask →</button>
     </div>
   </div>
 </div>
 
 <script>
-// Auto-detect: use Railway URL in production, localhost in development
 const SERVER = (
   window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
     ? "http://localhost:3456"
@@ -246,53 +310,62 @@ const CHAT_API = `${SERVER}/chat`;
 
 let sources = [];
 let messages = [];
+let chatHistory = JSON.parse(localStorage.getItem("ccarbon_history") || "[]");
 let isLoading = false;
 let nextRefresh = Date.now() + REFRESH_INTERVAL;
 let serverOnline = false;
 let currentWatchDir = "";
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
-const messagesEl = document.getElementById("messages");
-const inputEl = document.getElementById("user-input");
-const sendBtn = document.getElementById("send-btn");
-const sourceListEl = document.getElementById("source-list");
-const statusDot = document.getElementById("status-dot");
-const statusText = document.getElementById("status-text");
-const headerMeta = document.getElementById("header-meta");
-const countdown = document.getElementById("countdown");
+const messagesEl  = document.getElementById("messages");
+const inputEl     = document.getElementById("user-input");
+const sendBtn     = document.getElementById("send-btn");
+const statusDot   = document.getElementById("status-dot");
+const statusText  = document.getElementById("status-text");
+const headerMeta  = document.getElementById("header-meta");
+const countdown   = document.getElementById("countdown");
+const articleCount= document.getElementById("article-count");
 
-// ── Server polling ─────────────────────────────────────────────────────────────
+// ── Tabs ───────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.getElementById("tab-" + name).classList.add("active");
+  document.getElementById("panel-" + name).classList.add("active");
+  if (name === "history") renderHistory();
+  if (name === "suggest") renderSuggestions();
+}
+
+// ── Sources ────────────────────────────────────────────────────────────────────
 async function fetchSources(manual = false) {
   try {
     const res = await fetch(`${SERVER}/sources`, { signal: AbortSignal.timeout(15000) });
     const json = await res.json();
-    const prev = sources.map(s => s.name).join(",");
     sources = json.sources || [];
     currentWatchDir = json.watchDir || "";
-    const curr = sources.map(s => s.name).join(",");
     if (!serverOnline) {
       serverOnline = true;
       setStatus("green", `Connected · ${WATCH_DIR_LABEL(json.watchDir)}`);
       sendBtn.disabled = false;
-      addSysMsg(`Server connected. Watching: ${json.watchDir}`, "ok");
+      addSysMsg(`Connected. ${json.totalArticles || sources.length} articles indexed.`, "ok");
       if (!messages.length) addWelcome();
     }
-    if (manual || prev !== curr) renderSources();
-    else renderSources();
-    updateHeader();
+    renderSources();
+    const total = json.totalArticles || sources.reduce((a,s)=>a+(s.records||0),0);
+    headerMeta.textContent = `${total} articles · ${sources.length} files`;
+    articleCount.textContent = `${total} articles`;
     nextRefresh = Date.now() + REFRESH_INTERVAL;
   } catch (e) {
+    console.error("fetchSources error:", e);
     serverOnline = false;
     setStatus("red", "Server offline");
     sendBtn.disabled = true;
-    renderOffline();
+    document.getElementById("panel-sources").innerHTML = `<div style="padding:14px 12px;color:var(--red);font-size:12px;line-height:1.7;">Cannot reach server.<br><span style="color:var(--muted)">Check Railway deployment.</span></div>`;
   }
 }
 
 function WATCH_DIR_LABEL(dir) {
   if (!dir) return "…";
-  const parts = dir.replace(/\\/g, "/").split("/");
-  return parts.slice(-2).join("/");
+  return dir.replace(/\\/g,"/").split("/").slice(-2).join("/");
 }
 
 function setStatus(color, text) {
@@ -301,61 +374,91 @@ function setStatus(color, text) {
 }
 
 function renderSources() {
+  const el = document.getElementById("panel-sources");
   if (!sources.length) {
-    sourceListEl.innerHTML = `<div style="padding:14px 12px;color:var(--muted);font-size:12px;line-height:1.6;">No JSON files found.<br>Drop files into your watched folder.</div>`;
+    el.innerHTML = `<div style="padding:14px 12px;color:var(--muted);font-size:12px;">No JSON files found.</div>`;
     return;
   }
-  sourceListEl.innerHTML = sources.map(s => {
+  el.innerHTML = sources.map(s => {
     const age = s.updatedAt ? timeAgo(s.updatedAt) : "—";
-    const records = s.records != null ? `${s.records} rows` : "object";
     return `<div class="source-item">
       <div class="source-name">${s.name}.json</div>
       <div class="source-meta">
-        <span class="source-badge">${records}</span>
+        <span class="source-badge">${s.records||0} records</span>
         <span>${age}</span>
       </div>
     </div>`;
   }).join("");
 }
 
-function renderOffline() {
-  sourceListEl.innerHTML = `<div style="padding:14px 12px;color:var(--red);font-size:12px;line-height:1.7;">
-    Cannot reach server.<br>
-    <span style="color:var(--muted)">Run: <code style="color:var(--accent);font-family:monospace">node server.js</code></span>
-  </div>`;
+// ── History ────────────────────────────────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById("panel-history");
+  if (!chatHistory.length) {
+    el.innerHTML = `<div class="history-empty">Your recent questions<br>will appear here.</div>`;
+    return;
+  }
+  el.innerHTML = [...chatHistory].reverse().slice(0, 20).map((h, i) => `
+    <div class="history-item" onclick="askFromHistory(${chatHistory.length - 1 - i})">
+      <div class="history-q">${escHtml(h.q.slice(0, 80))}${h.q.length > 80 ? "…" : ""}</div>
+      <div class="history-time">${h.time}</div>
+    </div>`).join("");
 }
 
-function updateHeader() {
-  const total = sources.reduce((a, s) => a + (s.records || 0), 0);
-  headerMeta.textContent = sources.length
-    ? `${sources.length} source${sources.length > 1 ? "s" : ""} · ${total} records`
-    : "no data loaded";
+function askFromHistory(idx) {
+  inputEl.value = chatHistory[idx].q;
+  inputEl.focus();
+  switchTab("sources");
 }
 
-function timeAgo(ts) {
-  const s = Math.round((Date.now() - ts) / 1000);
-  if (s < 10) return "just now";
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.round(s / 60)}m ago`;
-  return `${Math.round(s / 3600)}h ago`;
+function saveHistory(q) {
+  chatHistory.push({ q, time: new Date().toLocaleTimeString() });
+  if (chatHistory.length > 50) chatHistory.shift();
+  try { localStorage.setItem("ccarbon_history", JSON.stringify(chatHistory)); } catch(e) {}
 }
 
-// ── Countdown timer ───────────────────────────────────────────────────────────
-setInterval(() => {
-  const secs = Math.max(0, Math.round((nextRefresh - Date.now()) / 1000));
-  countdown.textContent = secs > 0 ? `${secs}s` : "syncing…";
-  if (secs === 0) fetchSources();
-}, 1000);
+// ── Suggestions ────────────────────────────────────────────────────────────────
+const SUGGESTIONS = [
+  { cat: "Market Overview", q: "Summarize the latest Clean Fuel Standards news", icon: "📰" },
+  { cat: "Price Commentary", q: "What are the latest LCFS credit price trends?", icon: "💹" },
+  { cat: "Policy", q: "What reports discuss LCFS outlook after 2024?", icon: "📋" },
+  { cat: "Technology", q: "Summarize recent insights on hydrogen markets", icon: "⚗️" },
+  { cat: "Analysis", q: "What did cCarbon publish in the last 3 months?", icon: "🔍" },
+  { cat: "Webinars", q: "Summarize recent webinars on Cap-and-Trade markets", icon: "🎙️" },
+  { cat: "Sustainable Fuels", q: "What are the key takeaways on sustainable aviation fuel?", icon: "✈️" },
+  { cat: "Regional", q: "What is the latest news on California carbon markets?", icon: "🌍" },
+  { cat: "Comparison", q: "Compare LCFS and Clean Fuel Regulations across provinces", icon: "⚖️" },
+];
 
-// ── Chat (RAG mode — server handles retrieval, no local data needed) ───────────
-function buildSystemPrompt() {
-  return ""; // RAG server builds its own prompt from Qdrant search results
+function renderSuggestions() {
+  const el = document.getElementById("panel-suggest");
+  el.innerHTML = SUGGESTIONS.map(s => `
+    <div class="suggest-item" onclick="askSuggestion('${s.q.replace(/'/g,"\\'")}')">
+      <span class="suggest-icon">${s.icon}</span>
+      <div>
+        <div class="suggest-cat">${s.cat}</div>
+        ${escHtml(s.q)}
+      </div>
+    </div>`).join("");
 }
 
+function askSuggestion(q) {
+  inputEl.value = q;
+  inputEl.focus();
+  switchTab("sources");
+}
+
+// ── Chat ───────────────────────────────────────────────────────────────────────
 function addWelcome() {
-  const total = sources.reduce((a, s) => a + (s.records || 0), 0);
-  const folder = currentWatchDir ? `<br><br>📁 Watching: <code style="word-break:break-all">${currentWatchDir}</code>` : "";
-  appendMsg("assistant", `Hello! I'm your market intelligence assistant (Llama 3.3 70B on Groq).<br>I have <strong>${total}</strong> article${total!==1?"s":""} indexed and ready.${folder}<br><br>Try asking:<br>• "What are the latest news articles?"<br>• "Summarize news about hydrogen"<br>• "Show all articles from February 2026"<br>• "What are the top stories in Sustainable Fuels?"<br>• "Find articles mentioning India"`);
+  const total = sources.reduce((a,s)=>a+(s.records||0),0);
+  appendMsg("assistant", `Welcome to the <strong>cCarbon CFS Assistant</strong>.<br><br>
+I have access to <strong>${total} indexed documents</strong> including news, price commentaries, insights, reports, and webinars from cCarbon's proprietary content library.<br><br>
+I can help you:<br>
+• Find the latest market intelligence on Clean Fuel Standards<br>
+• Summarize LCFS credit price trends and outlooks<br>
+• Retrieve analyst notes and reports by topic or date<br>
+• Compare policy developments across jurisdictions<br><br>
+<span style="color:var(--muted);font-size:12px;">Try the <strong>Suggest</strong> tab in the sidebar for example queries.</span>`);
 }
 
 function addSysMsg(text, type = "") {
@@ -369,16 +472,14 @@ function addSysMsg(text, type = "") {
 function appendMsg(role, html) {
   const row = document.createElement("div");
   row.className = `msg-row ${role}`;
-  if (role === "user" || role === "assistant") {
-    const av = document.createElement("div");
-    av.className = `avatar ${role}`;
-    av.textContent = role === "user" ? "you" : "ai";
-    const bub = document.createElement("div");
-    bub.className = "bubble";
-    bub.innerHTML = html;
-    row.appendChild(av);
-    row.appendChild(bub);
-  }
+  const av = document.createElement("div");
+  av.className = `avatar ${role}`;
+  av.textContent = role === "user" ? "you" : "⚡";
+  const bub = document.createElement("div");
+  bub.className = "bubble";
+  bub.innerHTML = html;
+  row.appendChild(av);
+  row.appendChild(bub);
   messagesEl.appendChild(row);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return row;
@@ -387,44 +488,40 @@ function appendMsg(role, html) {
 function formatReply(text) {
   return text
     .replace(/```([\w]*)\n?([\s\S]*?)```/g, (_, lang, code) => `<pre>${escHtml(code.trim())}</pre>`)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+    .replace(/^• /gm, "• ")
     .replace(/\n/g, "<br>");
 }
 
 function escHtml(s) {
-  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
 async function sendMsg() {
   const text = inputEl.value.trim();
   if (!text || isLoading || !serverOnline) return;
   inputEl.value = "";
-  inputEl.style.height = "auto";
   isLoading = true;
   sendBtn.disabled = true;
 
+  saveHistory(text);
   messages.push({ role: "user", content: text });
   appendMsg("user", escHtml(text));
 
-  // Typing indicator
   const typingRow = document.createElement("div");
   typingRow.className = "msg-row assistant";
-  typingRow.innerHTML = `<div class="avatar assistant">ai</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  typingRow.innerHTML = `<div class="avatar assistant">⚡</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
   messagesEl.appendChild(typingRow);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-
-  // Refresh sources before answering so data is fresh
-  await fetchSources();
 
   try {
     const res = await fetch(CHAT_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
         max_tokens: 1000,
-        system: buildSystemPrompt(),
         messages: messages.map(m => ({ role: m.role, content: m.content }))
       })
     });
@@ -444,12 +541,27 @@ async function sendMsg() {
   inputEl.focus();
 }
 
-// ── Input handlers ─────────────────────────────────────────────────────────────
+function timeAgo(ts) {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 10) return "just now";
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s/60)}m ago`;
+  return `${Math.round(s/3600)}h ago`;
+}
+
 inputEl.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(); }
 });
 
-// ── Boot ───────────────────────────────────────────────────────────────────────
+// Countdown
+setInterval(() => {
+  const secs = Math.max(0, Math.round((nextRefresh - Date.now()) / 1000));
+  countdown.textContent = secs > 0 ? `${secs}s` : "syncing…";
+  if (secs === 0) fetchSources();
+}, 1000);
+
+// Init
+renderSuggestions();
 fetchSources();
 setInterval(() => fetchSources(), REFRESH_INTERVAL);
 </script>

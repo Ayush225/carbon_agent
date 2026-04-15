@@ -25,13 +25,13 @@ const PORT           = process.env.PORT || 3456;
 const WATCH_DIR      = path.resolve(process.env.DATA_DIR || "./data");
 const POLL_INTERVAL  = 5 * 60 * 1000;
 const GROQ_API_KEY   = process.env.GROQ_API_KEY   || "";
-const GROQ_MODEL     = "llama-3.3-70b-versatile";
+const GROQ_MODEL     = "llama-3.1-8b-instant"; // 30k TPM free limit
 const QDRANT_URL     = (process.env.QDRANT_URL     || "").replace(/\/$/, "");
 const QDRANT_API_KEY = process.env.QDRANT_API_KEY  || "";
 const HF_API_KEY     = process.env.HF_API_KEY      || "";
 const COLLECTION     = "articles";
 const EMBED_MODEL    = "sentence-transformers/all-MiniLM-L6-v2";
-const TOP_K          = 5;
+const TOP_K          = 3;
 
 let indexedFiles  = {};
 let totalArticles = 0;
@@ -247,17 +247,42 @@ async function ragAnswer(question, history) {
   const context = hits.map((h, i) => {
     const p = h.payload;
     const date = p.date ? new Date(p.date).toDateString() : "unknown";
-    return `[${i+1}] "${p.title}" | ${date} | ${p.market_categories.join(", ")}
-Link: ${p.post_link || "—"}
-${p.content}`;
+    const snippet = (p.content || "").slice(0, 500);
+    return `[${i+1}] "${p.title}" | ${date} | ${(p.market_categories||[]).join(", ")} | Type: ${p.post_type||"—"}
+Author: ${p.author||"—"} | Link: ${p.post_link || "—"}
+${snippet}`;
   }).join("\n\n---\n\n");
 
-  const system = `You are a market intelligence assistant (Llama 3.3 70B via Groq).
-Answer using ONLY the retrieved articles below. Cite title + date for each reference.
-Sort by most recent unless asked otherwise. Include links when available.
+  const system = `You are an expert market analyst assistant trained on cCarbon proprietary content.
 
-Retrieved articles (most relevant first):
-${context || "No relevant articles found for this query."}`;
+Use ONLY the indexed documents provided to you (news, insights, reports, webinars, price commentaries, articles).
+
+TASKS:
+1. Retrieve the most relevant documents based on the user query.
+2. Filter results by document type, market categories, or date range if specified.
+3. Summarize the findings clearly and concisely.
+4. Present information in a structured format with headings.
+5. ALWAYS include date references when mentioning any insight, report, or event.
+6. If multiple documents are used, clearly differentiate them.
+7. If a download link or post_link is available, include it.
+8. Do NOT hallucinate information outside the provided documents.
+
+OUTPUT FORMAT:
+- Start with a short executive summary (3-5 bullet points).
+- Then provide detailed insights grouped by date (newest first).
+- For each document mention: title, document type, author (if available), publication date, key takeaways, and source link.
+
+DATE HANDLING:
+- Always convert dates into readable format (e.g., "21 November 2025").
+- If comparing trends, explicitly mention the time period.
+- If no recent documents are found, say so clearly.
+
+TONE: Professional, analytical, neutral, data-driven.
+
+IMPORTANT: If multiple documents contradict each other, mention the difference. Never fabricate numbers, prices, or policy statements.
+
+Retrieved documents (most relevant first):
+${context || "No relevant documents found for this query."}`;
 
   const payload = JSON.stringify({
     model: GROQ_MODEL,
@@ -347,8 +372,14 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname === "/" || pathname === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end(`RAG Agent | Articles: ${totalArticles} | Qdrant: ${qdrantReady ? "ready" : "init"}`);
+    const htmlPath = path.join(__dirname, "agent.html");
+    if (fs.existsSync(htmlPath)) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(fs.readFileSync(htmlPath));
+    } else {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(`RAG Agent | Articles: ${totalArticles} | Qdrant: ${qdrantReady ? "ready" : "init"}`);
+    }
     return;
   }
 
