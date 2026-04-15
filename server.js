@@ -32,8 +32,6 @@ const HF_API_KEY     = process.env.HF_API_KEY      || "";
 const COLLECTION     = "articles";
 const EMBED_MODEL    = "sentence-transformers/all-MiniLM-L6-v2";
 const TOP_K          = 3;
-const PRICE_API_URL = process.env.PRICE_API_URL || "https://apifast.ckinetics.com/v1/?auth-key=q1PZttqXGCcs&api-id=CF_CALCFS_9312853";
-const PRICE_REFRESH = 4 * 60 * 60 * 1000;
 
 let indexedFiles  = {};
 let totalArticles = 0;
