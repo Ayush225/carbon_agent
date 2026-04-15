@@ -63,21 +63,24 @@ function qdrantHost() {
 
 // HuggingFace embeddings
 async function embed(texts) {
-  const payload = JSON.stringify({ inputs: texts, options: { wait_for_model: true } });
+  const payload = JSON.stringify({ inputs: texts });
   const res = await httpsRequest({
     hostname: "router.huggingface.co",
-    path: `/pipeline/feature-extraction/${EMBED_MODEL}`,
+    path: `/models/${EMBED_MODEL}`,
     method: "POST",
     headers: {
       "Authorization": `Bearer ${HF_API_KEY}`,
       "Content-Type": "application/json",
+      "x-wait-for-model": "true",
       "Content-Length": Buffer.byteLength(payload)
     }
   }, payload);
   if (res.status !== 200) throw new Error(`HuggingFace error ${res.status}: ${JSON.stringify(res.body)}`);
   const result = res.body;
-  if (Array.isArray(result[0]) && Array.isArray(result[0][0])) return result;
-  if (Array.isArray(result[0]) && typeof result[0][0] === "number") return [result];
+  // Normalize to array of vectors
+  if (Array.isArray(result) && Array.isArray(result[0]) && Array.isArray(result[0][0])) return result; // batch [[vec],[vec]]
+  if (Array.isArray(result) && Array.isArray(result[0]) && typeof result[0][0] === "number") return [result]; // single [vec]
+  if (Array.isArray(result) && typeof result[0] === "number") return [result]; // bare vec
   return result;
 }
 
