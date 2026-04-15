@@ -100,12 +100,19 @@ async function qdrantReq(method, endpoint, body) {
 }
 
 async function ensureCollection() {
-  const check = await qdrantReq("GET", `/collections/${COLLECTION}`);
-  if (check.status === 200) { log(`Collection "${COLLECTION}" exists`); return; }
+  // Delete and recreate to ensure correct vector dimensions
+  await qdrantReq("DELETE", `/collections/${COLLECTION}`);
+  log(`Dropped old collection "${COLLECTION}" (if existed)`);
+
+  // Probe actual embedding size with a test string
+  const testVecs = await embed(["test"]);
+  const dim = testVecs[0].length;
+  log(`Detected embedding dimension: ${dim}`);
+
   const res = await qdrantReq("PUT", `/collections/${COLLECTION}`, {
-    vectors: { size: 384, distance: "Cosine" }
+    vectors: { size: dim, distance: "Cosine" }
   });
-  if (res.status === 200 || res.status === 201) log(`Collection "${COLLECTION}" created`);
+  if (res.status === 200 || res.status === 201) log(`Collection "${COLLECTION}" created (dim=${dim})`);
   else throw new Error(`Failed to create collection: ${JSON.stringify(res.body)}`);
 }
 
