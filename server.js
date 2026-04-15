@@ -66,7 +66,7 @@ async function embed(texts) {
   const payload = JSON.stringify({ inputs: texts });
   const res = await httpsRequest({
     hostname: "router.huggingface.co",
-    path: `/models/${EMBED_MODEL}`,
+    path: `/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
     method: "POST",
     headers: {
       "Authorization": `Bearer ${HF_API_KEY}`,
