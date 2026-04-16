@@ -1,17 +1,14 @@
 /**
- * JSON Data Agent — RAG Server
- * -----------------------------
- * Full Retrieval-Augmented Generation pipeline:
- *   1. Reads JSON files from ./data on startup + every 5 mins
- *   2. Generates embeddings via HuggingFace (free)
- *   3. Stores vectors in Qdrant Cloud (free)
- *   4. On each user query: embeds question → searches Qdrant → top 5 results to Groq
- *
+ * JSON Data Agent — RAG Server with Auth0 JWT + Tier-Based Access
+ * ---------------------------------------------------------------
  * ENV VARS (set in Railway dashboard):
  *   GROQ_API_KEY        — groq.com API key
- *   QDRANT_URL          — e.g. https://xxxx.us-east4-0.gcp.cloud.qdrant.io
+ *   QDRANT_URL          — Qdrant Cloud cluster URL
  *   QDRANT_API_KEY      — Qdrant Cloud API key
- *   HF_API_KEY          — HuggingFace token (free, for embeddings)
+ *   HF_API_KEY          — HuggingFace token
+ *   AUTH0_DOMAIN        — e.g. dev-xxx.us.auth0.com
+ *   AUTH0_AUDIENCE      — your Auth0 API identifier
+ *   PRICE_API_URL       — live price CSV endpoint
  *   PORT                — set automatically by Railway
  */
 
@@ -20,7 +17,9 @@ const https  = require("https");
 const fs     = require("fs");
 const path   = require("path");
 const url    = require("url");
+const crypto = require("crypto");
 
+// ── Config ─────────────────────────────────────────────────────────────────────
 const PORT           = process.env.PORT || 3456;
 const WATCH_DIR      = path.resolve(process.env.DATA_DIR || "./data");
 const POLL_INTERVAL  = 5 * 60 * 1000;
@@ -29,23 +28,46 @@ const GROQ_MODEL     = (process.env.GROQ_MODEL || "llama-3.1-8b-instant").replac
 const QDRANT_URL     = (process.env.QDRANT_URL     || "").replace(/\/$/, "");
 const QDRANT_API_KEY = process.env.QDRANT_API_KEY  || "";
 const HF_API_KEY     = process.env.HF_API_KEY      || "";
+const AUTH0_DOMAIN   = process.env.AUTH0_DOMAIN    || "dev-uxt65wdnctuy40v8.us.auth0.com";
+const AUTH0_AUDIENCE = process.env.AUTH0_AUDIENCE  || "";
 const COLLECTION     = "articles";
 const EMBED_MODEL    = "sentence-transformers/all-MiniLM-L6-v2";
 const TOP_K          = 3;
-const PRICE_API_URL  = process.env.PRICE_API_URL || "https://apifast.ckinetics.com/v1/?auth-key=q1PZttqXGCcs&api-id=CF_CALCFS_9312853";
+const PRICE_API_URL  = process.env.PRICE_API_URL || "";
 const PRICE_REFRESH  = 4 * 60 * 60 * 1000;
 
-let indexedFiles  = {};
-let totalArticles = 0;
-let lastIndexed   = null;
-let qdrantReady   = false;
-let priceData     = [];   // cached CSV rows
+// ── Tier definitions ───────────────────────────────────────────────────────────
+const TIER_POST_TYPES = {
+  free:       ["news", "post"],
+  essential:  ["news", "post", "pricecommentary", "insight"],
+  enterprise: ["news", "post", "pricecommentary", "insight", "webinar", "report"]
+};
+
+function getTierFromRoles(roles) {
+  if (!roles || !roles.length) return "free";
+  if (roles.includes("enterprise")) return "enterprise";
+  if (roles.includes("essential"))  return "essential";
+  return "free";
+}
+
+function getAllowedPostTypes(tier) {
+  return TIER_POST_TYPES[tier] || TIER_POST_TYPES.free;
+}
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let indexedFiles     = {};
+let totalArticles    = 0;
+let lastIndexed      = null;
+let qdrantReady      = false;
+let priceData        = [];
 let priceLastFetched = null;
 let priceFetchError  = null;
+let jwksCache        = null;
+let jwksCacheTime    = 0;
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 
-// Generic HTTPS helper
+// ── HTTPS helper ───────────────────────────────────────────────────────────────
 function httpsRequest(options, body) {
   return new Promise((resolve, reject) => {
     const req = https.request(options, res => {
@@ -62,58 +84,80 @@ function httpsRequest(options, body) {
   });
 }
 
+// ── Auth0 JWT Verification ─────────────────────────────────────────────────────
+async function getJWKS() {
+  const now = Date.now();
+  if (jwksCache && now - jwksCacheTime < 60 * 60 * 1000) return jwksCache;
+  const res = await httpsRequest({
+    hostname: AUTH0_DOMAIN,
+    path: "/.well-known/jwks.json",
+    method: "GET"
+  });
+  if (res.status !== 200) throw new Error("Failed to fetch JWKS");
+  jwksCache = res.body;
+  jwksCacheTime = now;
+  return jwksCache;
+}
+
+function base64urlDecode(str) {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  return Buffer.from(str, "base64");
+}
+
+async function verifyJWT(token) {
+  if (!token) throw new Error("No token provided");
+
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new Error("Invalid JWT format");
+
+  const header  = JSON.parse(base64urlDecode(parts[0]).toString());
+  const payload = JSON.parse(base64urlDecode(parts[1]).toString());
+
+  // Check expiry
+  if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+    throw new Error("Token expired");
+  }
+
+  // Check issuer
+  if (payload.iss !== `https://${AUTH0_DOMAIN}/`) {
+    throw new Error("Invalid token issuer");
+  }
+
+  // Verify signature using JWKS
+  const jwks = await getJWKS();
+  const jwk  = jwks.keys.find(k => k.kid === header.kid);
+  if (!jwk) throw new Error("No matching key found in JWKS");
+
+  const pubKey = crypto.createPublicKey({ key: jwk, format: "jwk" });
+  const signingInput = Buffer.from(`${parts[0]}.${parts[1]}`);
+  const signature    = base64urlDecode(parts[2]);
+
+  const valid = crypto.verify("sha256", signingInput, pubKey, signature);
+  if (!valid) throw new Error("Invalid token signature");
+
+  return payload;
+}
+
+function extractToken(req) {
+  const auth = req.headers["authorization"] || "";
+  if (auth.startsWith("Bearer ")) return auth.slice(7);
+  return null;
+}
+
+// Get user tier from JWT payload
+// Auth0 stores custom claims with a namespace
+function getUserTier(payload) {
+  const ns = `https://ccarbon.info/roles`;
+  const roles = payload[ns] || payload["https://ccarbon/roles"] || payload.roles || [];
+  return getTierFromRoles(Array.isArray(roles) ? roles : [roles]);
+}
+
+// ── Qdrant ─────────────────────────────────────────────────────────────────────
 function qdrantHost() {
   try { return new URL(QDRANT_URL).hostname; } catch { return ""; }
 }
 
-// HuggingFace embeddings
-async function embed(texts) {
-  const payload = JSON.stringify({ inputs: texts });
-  const res = await httpsRequest({
-    hostname: "router.huggingface.co",
-    path: `/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${HF_API_KEY}`,
-      "Content-Type": "application/json",
-      "x-wait-for-model": "true",
-      "Content-Length": Buffer.byteLength(payload)
-    }
-  }, payload);
-  if (res.status !== 200) throw new Error(`HuggingFace error ${res.status}: ${JSON.stringify(res.body)}`);
-  const raw = res.body;
-
-  // HF can return several shapes — normalize everything to: Array of flat float arrays
-  // Shape A: [ [f,f,f,...], [f,f,f,...] ]  — batch of vectors (what we want)
-  // Shape B: [ f, f, f, ... ]              — single bare vector
-  // Shape C: [ [[f,f,...]], [[f,f,...]] ]   — batch wrapped in extra dim (token-level)
-  // Shape D: [ [ [f,f,...] ] ]             — single wrapped in two extra dims
-
-  function flatten(v) {
-    // Recursively unwrap until we get a flat number array
-    while (Array.isArray(v) && Array.isArray(v[0])) v = v[0];
-    return v;
-  }
-
-  // If it's a batch (array of items)
-  if (Array.isArray(raw)) {
-    if (typeof raw[0] === "number") {
-      // bare single vector [f,f,f,...]
-      return [raw];
-    }
-    if (Array.isArray(raw[0])) {
-      if (typeof raw[0][0] === "number") {
-        // [[f,f,...],[f,f,...]] — proper batch
-        return raw;
-      }
-      // Nested deeper — flatten each item
-      return raw.map(item => flatten(item));
-    }
-  }
-  return [flatten(raw)];
-}
-
-// Qdrant helpers
 async function qdrantReq(method, endpoint, body) {
   const payload = body ? JSON.stringify(body) : null;
   return httpsRequest({
@@ -129,16 +173,12 @@ async function qdrantReq(method, endpoint, body) {
 }
 
 async function ensureCollection() {
-  // Delete and recreate to ensure correct vector dimensions
   await qdrantReq("DELETE", `/collections/${COLLECTION}`);
-  log(`Dropped old collection "${COLLECTION}" (if existed)`);
-
-  // Probe actual embedding size with a test string
+  log(`Dropped old collection "${COLLECTION}"`);
   const testVecs = await embed(["test"]);
   const dim = testVecs[0].length;
-  log(`Detected embedding dimension: ${dim} (vec sample: ${JSON.stringify(testVecs[0].slice(0,3))}...)`);
-  if (dim < 10) throw new Error(`Embedding dim too small (${dim}) — check HF response shape`);
-
+  log(`Detected embedding dimension: ${dim}`);
+  if (dim < 10) throw new Error(`Embedding dim too small (${dim})`);
   const res = await qdrantReq("PUT", `/collections/${COLLECTION}`, {
     vectors: { size: dim, distance: "Cosine" }
   });
@@ -151,10 +191,25 @@ async function upsertPoints(points) {
   if (res.status !== 200) throw new Error(`Upsert failed: ${JSON.stringify(res.body)}`);
 }
 
-async function searchQdrant(vec) {
-  const res = await qdrantReq("POST", `/collections/${COLLECTION}/points/search`, {
-    vector: vec, limit: TOP_K, with_payload: true
-  });
+// Search with tier-based filter
+async function searchQdrant(vec, allowedPostTypes) {
+  const body = {
+    vector: vec,
+    limit: TOP_K,
+    with_payload: true
+  };
+
+  // Add post_type filter if not enterprise (enterprise sees everything)
+  if (allowedPostTypes && allowedPostTypes.length < TIER_POST_TYPES.enterprise.length) {
+    body.filter = {
+      must: [{
+        key: "post_type",
+        match: { any: allowedPostTypes }
+      }]
+    };
+  }
+
+  const res = await qdrantReq("POST", `/collections/${COLLECTION}/points/search`, body);
   if (res.status !== 200) throw new Error(`Search failed: ${JSON.stringify(res.body)}`);
   return res.body.result || [];
 }
@@ -165,6 +220,34 @@ async function deleteByFile(file) {
   });
 }
 
+// ── Embeddings ─────────────────────────────────────────────────────────────────
+async function embed(texts) {
+  const payload = JSON.stringify({ inputs: texts });
+  const res = await httpsRequest({
+    hostname: "router.huggingface.co",
+    path: `/hf-inference/models/${EMBED_MODEL}/pipeline/feature-extraction`,
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${HF_API_KEY}`,
+      "Content-Type": "application/json",
+      "x-wait-for-model": "true",
+      "Content-Length": Buffer.byteLength(payload)
+    }
+  }, payload);
+  if (res.status !== 200) throw new Error(`HuggingFace error ${res.status}: ${JSON.stringify(res.body)}`);
+  const raw = res.body;
+  function flatten(v) { while (Array.isArray(v) && Array.isArray(v[0])) v = v[0]; return v; }
+  if (Array.isArray(raw)) {
+    if (typeof raw[0] === "number") return [raw];
+    if (Array.isArray(raw[0])) {
+      if (typeof raw[0][0] === "number") return raw;
+      return raw.map(item => flatten(item));
+    }
+  }
+  return [flatten(raw)];
+}
+
+// ── Indexing ───────────────────────────────────────────────────────────────────
 function articleToText(a) {
   return [a.title, a.content, (a.market_categories||[]).join(", "), (a.other_labels||[]).join(", ")]
     .filter(Boolean).join(" | ").slice(0, 1000);
@@ -198,11 +281,12 @@ async function indexFile(file) {
       id: makeId(file, i + j),
       vector: vectors[j],
       payload: {
-        source_file: file,
+        source_file:       file,
         title:             a.title             || "",
         content:           a.content           || "",
         date:              a.date              || "",
         author:            a.author            || "",
+        post_type:         a.post_type         || "news",   // ← used for tier filtering
         market_categories: a.market_categories || [],
         other_labels:      a.other_labels      || [],
         post_link:         a.post_link         || "",
@@ -244,10 +328,11 @@ async function indexFolder() {
   if (changed) lastIndexed = Date.now();
 }
 
-// RAG answer
-async function ragAnswer(question, history) {
+// ── RAG answer ─────────────────────────────────────────────────────────────────
+async function ragAnswer(question, history, tier) {
+  const allowedPostTypes = getAllowedPostTypes(tier);
   const qVecs = await embed([question]);
-  const hits  = await searchQdrant(qVecs[0]);
+  const hits  = await searchQdrant(qVecs[0], allowedPostTypes);
 
   const context = hits.map((h, i) => {
     const p = h.payload;
@@ -258,13 +343,18 @@ Author: ${p.author||"—"} | Link: ${p.post_link || "—"}
 ${snippet}`;
   }).join("\n\n---\n\n");
 
-  // Add live price data if query is price-related
   const priceContext = isPriceQuery(question)
     ? "\n\n=== LIVE LCFS PRICE DATA ===\n" + priceDataSummary()
     : "";
 
   const priceInstructions = isPriceQuery(question)
     ? "\nPRICE DATA: Present the price data as a markdown table (Date|Benchmark|Spot|Front Nodal). Write a short trend summary after the table. Prefix the table with [PRICE_TABLE]."
+    : "";
+
+  const tierNote = tier === "free"
+    ? "\n\nNote: This user is on the Free tier. Only news and public posts are available to them."
+    : tier === "essential"
+    ? "\n\nNote: This user is on the Essential tier. News, price commentaries, and insights are available."
     : "";
 
   const system = `You are an expert market analyst assistant trained on cCarbon proprietary content.
@@ -311,6 +401,7 @@ DATE HANDLING:
 TONE: Professional, analytical, neutral, data-driven.
 
 IMPORTANT: If multiple documents contradict each other, mention the difference. Never fabricate numbers, prices, or policy statements.
+${tierNote}
 
 Retrieved documents (most relevant first):
 ${context || "No relevant documents found for this query."}${priceContext}${priceInstructions}`;
@@ -352,11 +443,71 @@ ${context || "No relevant documents found for this query."}${priceContext}${pric
   });
 }
 
-// HTTP server
+// ── Price API ──────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+  return lines.slice(1).map(line => {
+    const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+    const row = {};
+    headers.forEach((h, i) => { row[h] = vals[i] || ""; });
+    return row;
+  }).filter(r => r[headers[0]]);
+}
+
+async function fetchPriceData() {
+  if (!PRICE_API_URL) { log("PRICE_API_URL not set, skipping price fetch"); return; }
+  try {
+    log("Fetching live price data...");
+    const data = await new Promise((resolve, reject) => {
+      const urlObj = new URL(PRICE_API_URL);
+      const req = https.request({
+        hostname: urlObj.hostname,
+        path: urlObj.pathname + urlObj.search,
+        method: "GET",
+        headers: { "User-Agent": "cCarbon-Agent/1.0" }
+      }, res => {
+        let raw = "";
+        res.on("data", c => raw += c);
+        res.on("end", () => resolve(raw));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    const rows = parseCSV(data);
+    if (rows.length === 0) throw new Error("Empty CSV response");
+    rows.sort((a, b) => new Date(b.Date || "") - new Date(a.Date || ""));
+    priceData = rows;
+    priceLastFetched = Date.now();
+    priceFetchError = null;
+    log(`Price data fetched: ${rows.length} rows, latest: ${rows[0]?.Date}`);
+  } catch (e) {
+    priceFetchError = e.message;
+    log(`Price API error: ${e.message}`);
+  }
+}
+
+function priceDataSummary() {
+  if (!priceData.length) return "No price data available.";
+  const latest = priceData[0];
+  const fetched = priceLastFetched ? new Date(priceLastFetched).toLocaleString() : "unknown";
+  const rows = priceData.slice(0, 30);
+  const csvText = ["Date,Benchmark,Spot,Front (Nodal)"]
+    .concat(rows.map(r => `${r.Date},${(r.Benchmark||"").replace(/[$]/g,"")},${(r.Spot||"").replace(/[$]/g,"")},${(r["Front (Nodal)"]||"").replace(/[$]/g,"")}`))
+    .join("\n");
+  return "Latest LCFS price data (as of " + fetched + "):\nMost recent date: " + latest.Date + "\n\n" + csvText;
+}
+
+function isPriceQuery(q) {
+  return /price|benchmark|spot|nodal|lcfs credit|credit value|\$|cost|rate|trading|market price|latest price|current price/.test(q.toLowerCase());
+}
+
+// ── HTTP server ────────────────────────────────────────────────────────────────
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
 function respond(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -381,9 +532,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /prices — return cached price data
+  if (pathname === "/prices" && req.method === "GET") {
+    respond(res, 200, {
+      data: priceData.slice(0, 400),
+      lastFetched: priceLastFetched,
+      error: priceFetchError,
+      count: priceData.length
+    });
+    return;
+  }
+
+  // GET /auth/config — return Auth0 config for the frontend
+  if (pathname === "/auth/config" && req.method === "GET") {
+    respond(res, 200, {
+      domain: AUTH0_DOMAIN,
+      clientId: "Vkeg6vFZjoyoarltYjgu7TQLgxcGAcRz",
+      audience: AUTH0_AUDIENCE || `https://${AUTH0_DOMAIN}/api/v2/`
+    });
+    return;
+  }
+
+  // POST /chat — RAG pipeline with auth
   if (pathname === "/chat" && req.method === "POST") {
     if (!GROQ_API_KEY)  { respond(res, 400, { error: { message: "GROQ_API_KEY not set" } }); return; }
     if (!qdrantReady)   { respond(res, 503, { error: { message: "Vector index initializing, please wait..." } }); return; }
+
     let body = "";
     req.on("data", c => body += c);
     req.on("end", async () => {
@@ -392,8 +566,27 @@ const server = http.createServer((req, res) => {
         const question = messages?.[messages.length - 1]?.content || "";
         const history  = (messages || []).slice(0, -1);
         if (!question) { respond(res, 400, { error: { message: "No question" } }); return; }
-        const answer = await ragAnswer(question, history);
-        respond(res, 200, { content: [{ type: "text", text: answer }] });
+
+        // Verify JWT and get tier
+        let tier = "free";
+        const token = extractToken(req);
+        if (token) {
+          try {
+            const payload = await verifyJWT(token);
+            tier = getUserTier(payload);
+            log(`Chat request — user tier: ${tier}`);
+          } catch (e) {
+            log(`JWT verification failed: ${e.message} — defaulting to free tier`);
+          }
+        } else {
+          log("No auth token — defaulting to free tier");
+        }
+
+        const answer = await ragAnswer(question, history, tier);
+        respond(res, 200, {
+          content: [{ type: "text", text: answer }],
+          tier
+        });
       } catch (e) {
         log(`Chat error: ${e.message}`);
         respond(res, 500, { error: { message: e.message } });
@@ -414,90 +607,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /prices — return cached price data
-  if (pathname === "/prices" && req.method === "GET") {
-    respond(res, 200, {
-      data: priceData.slice(0, 400),
-      lastFetched: priceLastFetched,
-      error: priceFetchError,
-      count: priceData.length
-    });
-    return;
-  }
-
   respond(res, 404, { error: "Not found" });
 });
 
-// ── Price API ──────────────────────────────────────────────────────────────────
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map(line => {
-    const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
-    const row = {};
-    headers.forEach((h, i) => row[h] = vals[i] || "");
-    return row;
-  }).filter(r => r[headers[0]]); // skip empty rows
-}
-
-async function fetchPriceData() {
-  try {
-    log("Fetching live price data from API...");
-    const data = await new Promise((resolve, reject) => {
-      const urlObj = new URL(PRICE_API_URL);
-      const options = {
-        hostname: urlObj.hostname,
-        path: urlObj.pathname + urlObj.search,
-        method: "GET",
-        headers: { "User-Agent": "cCarbon-Agent/1.0" }
-      };
-      const req = https.request(options, res => {
-        let raw = "";
-        res.on("data", c => raw += c);
-        res.on("end", () => resolve(raw));
-      });
-      req.on("error", reject);
-      req.end();
-    });
-
-    const rows = parseCSV(data);
-    if (rows.length === 0) throw new Error("Empty or invalid CSV response");
-
-    // Sort by date descending
-    rows.sort((a, b) => new Date(b.Date || b.date || "") - new Date(a.Date || a.date || ""));
-
-    priceData = rows;
-    priceLastFetched = Date.now();
-    priceFetchError = null;
-    log(`Price data fetched: ${rows.length} rows, latest: ${rows[0]?.Date || "unknown"}`);
-  } catch (e) {
-    priceFetchError = e.message;
-    log(`Price API error: ${e.message}`);
-  }
-}
-
-function priceDataSummary() {
-  if (!priceData.length) return "No price data available.";
-  const latest = priceData[0];
-  const fetched = priceLastFetched ? new Date(priceLastFetched).toLocaleString() : "unknown";
-  const rows = priceData.slice(0, 30); // last 30 rows for context
-  const csvText = ["Date,Benchmark,Spot,Front (Nodal)"]
-    .concat(rows.map(r => `${r.Date},${(r.Benchmark||"").replace(/[$]/g,"")},${(r.Spot||"").replace(/[$]/g,"")},${(r["Front (Nodal)"]||"").replace(/[$]/g,"")}`))
-    .join("\n");
-  return "Latest LCFS price data (as of " + fetched + "):\nMost recent date: " + latest.Date + "\n\n" + csvText;
-}
-
-function isPriceQuery(question) {
-  const q = question.toLowerCase();
-  return /price|benchmark|spot|nodal|lcfs credit|credit value|\$|cost|rate|trading|market price|latest price|current price/.test(q);
-}
-
-// Boot
+// ── Boot ───────────────────────────────────────────────────────────────────────
 async function boot() {
-  log("Booting RAG Data Agent...");
+  log("Booting RAG Data Agent with Auth0...");
+  log(`Auth0 domain: ${AUTH0_DOMAIN}`);
+  log(`Tier mapping: free=${TIER_POST_TYPES.free.join(",")} | essential=${TIER_POST_TYPES.essential.join(",")} | enterprise=all`);
+
   if (!QDRANT_URL || !QDRANT_API_KEY || !HF_API_KEY) {
-    log("ERROR: Missing QDRANT_URL, QDRANT_API_KEY, or HF_API_KEY env vars");
+    log("ERROR: Missing QDRANT_URL, QDRANT_API_KEY, or HF_API_KEY");
   } else {
     try {
       await ensureCollection();
@@ -509,7 +629,7 @@ async function boot() {
       log(`Boot error: ${e.message}`);
     }
   }
-  // Fetch price data on boot and refresh every 4 hours
+
   await fetchPriceData();
   setInterval(fetchPriceData, PRICE_REFRESH);
 

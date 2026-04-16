@@ -238,6 +238,57 @@
 
   #input-hint { font-size: 10px; color: var(--muted2); padding: 4px 20px 8px; font-family: var(--mono); }
 
+  /* ── Auth overlay ──────────────────────────────────────────────── */
+  #auth-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #auth-box {
+    width: 360px; background: var(--bg2);
+    border: 1px solid var(--border2); border-radius: 14px;
+    padding: 36px 32px; text-align: center;
+  }
+  #auth-logo { width: 160px; margin-bottom: 20px; }
+  #auth-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  #auth-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+  #login-btn {
+    width: 100%; padding: 12px; background: var(--accent);
+    border: none; border-radius: 8px; color: white;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: var(--sans); transition: opacity 0.15s;
+  }
+  #login-btn:hover { opacity: 0.85; }
+  #auth-note { font-size: 11px; color: var(--muted2); margin-top: 16px; line-height: 1.6; }
+
+  /* ── User menu ─────────────────────────────────────────────────── */
+  #user-menu {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 10px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 20px;
+    cursor: pointer; font-size: 12px;
+  }
+  #user-menu:hover { border-color: var(--border2); }
+  #user-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--brand-blue); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; flex-shrink: 0;
+  }
+  #user-name { font-size: 12px; color: var(--text); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #user-tier-badge {
+    font-size: 9px; font-family: var(--mono); text-transform: uppercase;
+    padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em;
+  }
+  #user-tier-badge.free       { background: var(--bg4); color: var(--muted); }
+  #user-tier-badge.essential  { background: var(--brand-blue-dim); color: #6699cc; }
+  #user-tier-badge.enterprise { background: var(--accent-dim); color: var(--accent); }
+  #logout-btn {
+    background: none; border: none; color: var(--muted2); cursor: pointer;
+    font-size: 11px; padding: 2px 4px; font-family: var(--sans);
+  }
+  #logout-btn:hover { color: var(--red); }
+
   /* ── Header Price Ticker ─────────────────────────────────────── */
   #price-ticker {
     display: flex; align-items: center; gap: 10px;
@@ -392,8 +443,20 @@
   .pw-neutral { color: var(--muted) !important; }
   #pw-last-updated { padding: 6px 14px; font-size: 9px; color: var(--muted2); font-family: var(--mono); border-top: 1px solid var(--border); }
 </style>
+<script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
 </head>
 <body>
+<!-- Auth overlay (shown until logged in) -->
+<div id="auth-overlay">
+  <div id="auth-box">
+    <img id="auth-logo" src="ccarbon_logo.svg" alt="cCarbon" style="filter:brightness(0) invert(0.8);" />
+    <div id="auth-title">CFS Intelligence Assistant</div>
+    <div id="auth-sub">Sign in to access cCarbon's market intelligence platform.</div>
+    <button id="login-btn" onclick="login()">Sign in with Auth0</button>
+    <div id="auth-note">Access to content depends on your subscription tier.<br>Contact cCarbon to upgrade your plan.</div>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- SIDEBAR -->
@@ -482,7 +545,7 @@
       <div id="chat-header-icon">⚡</div>
       <div>
         <div id="chat-title">cCarbon CFS Assistant</div>
-        <div id="chat-subtitle">Built by Ayush (Currently under dev)</div>
+        <div id="chat-subtitle">Powered by Llama 3.1 8B · Semantic Search</div>
       </div>
       <div id="price-ticker">
         <div id="price-ticker-btn" onclick="togglePriceDropdown()">
@@ -534,7 +597,13 @@
           <div id="pd-footer">—</div>
         </div>
       </div>
-      <span id="header-meta">—</span>
+      <div id="user-menu" style="display:none;">
+        <div id="user-avatar">?</div>
+        <span id="user-name">—</span>
+        <span id="user-tier-badge" class="free">free</span>
+        <button id="logout-btn" onclick="logout()">Sign out</button>
+      </div>
+      <span id="header-meta" style="display:none;">—</span>
     </div>
 
     <div id="messages"></div>
@@ -552,6 +621,92 @@ const SERVER = (
     ? "http://localhost:3456"
     : window.RAILWAY_SERVER_URL || "https://carbonagent-production.up.railway.app"
 );
+
+// ── Auth0 ──────────────────────────────────────────────────────────────────────
+let auth0Client = null;
+let currentToken = null;
+let currentUser  = null;
+let currentTier  = "free";
+
+async function initAuth0() {
+  try {
+    const cfgRes = await fetch(SERVER + "/auth/config");
+    const cfg    = await cfgRes.json();
+
+    auth0Client = await auth0.createAuth0Client({
+      domain:        cfg.domain,
+      clientId:      cfg.clientId,
+      authorizationParams: {
+        redirect_uri: window.location.origin + window.location.pathname,
+        audience:     cfg.audience
+      },
+      cacheLocation: "localstorage"
+    });
+
+    // Handle redirect callback
+    if (window.location.search.includes("code=") || window.location.search.includes("error=")) {
+      await auth0Client.handleRedirectCallback();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    const isAuthenticated = await auth0Client.isAuthenticated();
+    if (isAuthenticated) {
+      await onLogin();
+    }
+  } catch (e) {
+    console.error("Auth0 init error:", e);
+    // If Auth0 fails, allow access in free tier (graceful fallback)
+    showApp("free", { name: "Guest", email: "" });
+  }
+}
+
+async function login() {
+  if (!auth0Client) return;
+  await auth0Client.loginWithRedirect();
+}
+
+async function logout() {
+  if (!auth0Client) return;
+  currentToken = null;
+  currentUser  = null;
+  await auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
+}
+
+async function onLogin() {
+  try {
+    currentUser  = await auth0Client.getUser();
+    currentToken = await auth0Client.getTokenSilently();
+    // Decode roles from token
+    const payload = JSON.parse(atob(currentToken.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));
+    const roles = payload["https://ccarbon.info/roles"] || payload.roles || [];
+    currentTier = roles.includes("enterprise") ? "enterprise" : roles.includes("essential") ? "essential" : "free";
+    showApp(currentTier, currentUser);
+  } catch (e) {
+    console.error("Login error:", e);
+    showApp("free", { name: "User", email: "" });
+  }
+}
+
+function showApp(tier, user) {
+  currentTier = tier;
+  document.getElementById("auth-overlay").style.display = "none";
+
+  // Update user menu
+  const menu = document.getElementById("user-menu");
+  const avatar = document.getElementById("user-avatar");
+  const nameEl = document.getElementById("user-name");
+  const badgeEl = document.getElementById("user-tier-badge");
+  const metaEl = document.getElementById("header-meta");
+
+  if (menu) menu.style.display = "flex";
+  if (metaEl) metaEl.style.display = "inline";
+  if (avatar) avatar.textContent = (user.name || user.email || "U")[0].toUpperCase();
+  if (nameEl) nameEl.textContent = user.name || user.email || "User";
+  if (badgeEl) {
+    badgeEl.textContent = tier;
+    badgeEl.className = "user-tier-badge " + tier;  // note: removed # prefix
+  }
+}
 const REFRESH_INTERVAL = 2 * 60 * 1000;
 const CHAT_API = `${SERVER}/chat`;
 
@@ -806,9 +961,17 @@ async function sendMsg() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   try {
+    // Refresh token if needed
+    if (auth0Client) {
+      try { currentToken = await auth0Client.getTokenSilently(); } catch(e) {}
+    }
+
+    const headers = { "Content-Type": "application/json" };
+    if (currentToken) headers["Authorization"] = "Bearer " + currentToken;
+
     const res = await fetch(CHAT_API, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         max_tokens: 1000,
         messages: messages.map(m => ({ role: m.role, content: m.content }))
@@ -1046,6 +1209,7 @@ fetchSources();
 loadPriceData();
 setInterval(() => fetchSources(), REFRESH_INTERVAL);
 setInterval(() => loadPriceData(), 4 * 60 * 60 * 1000);
+initAuth0();
 </script>
 </body>
 </html>
