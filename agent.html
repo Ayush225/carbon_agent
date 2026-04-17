@@ -238,6 +238,44 @@
 
   #input-hint { font-size: 10px; color: var(--muted2); padding: 4px 20px 8px; font-family: var(--mono); }
 
+  /* ── Usage limit banner ───────────────────────────────────────── */
+  #usage-bar {
+    padding: 4px 20px; background: var(--bg3);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-family: var(--mono); color: var(--muted);
+  }
+  #usage-bar-fill-wrap {
+    flex: 1; height: 4px; background: var(--border);
+    border-radius: 2px; overflow: hidden;
+  }
+  #usage-bar-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width 0.3s; }
+  #usage-bar-fill.warn { background: var(--amber); }
+  #usage-bar-fill.full { background: var(--red); }
+
+  #upgrade-overlay {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.7); align-items: center; justify-content: center;
+  }
+  #upgrade-overlay.show { display: flex; }
+  #upgrade-box {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 32px; max-width: 380px; text-align: center;
+  }
+  #upgrade-box h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  #upgrade-box p { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .upgrade-btn {
+    display: inline-block; padding: 10px 24px;
+    background: var(--accent); color: white;
+    border-radius: 8px; text-decoration: none;
+    font-size: 13px; font-weight: 600; margin: 4px;
+  }
+  .upgrade-btn.secondary {
+    background: var(--bg3); color: var(--muted);
+    border: 1px solid var(--border2);
+  }
+  .upgrade-btn.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
   /* ── Auth overlay ──────────────────────────────────────────────── */
   #auth-overlay {
     position: fixed; inset: 0; z-index: 1000;
@@ -446,6 +484,19 @@
 <script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
 </head>
 <body>
+<!-- Upgrade overlay (shown when limit reached) -->
+<div id="upgrade-overlay">
+  <div id="upgrade-box">
+    <div style="font-size:32px;margin-bottom:12px;">🔒</div>
+    <h2>Daily limit reached</h2>
+    <p id="upgrade-msg">You've used all <strong id="upgrade-limit">10</strong> queries for today on the <strong id="upgrade-tier">Free</strong> plan.<br><br>Upgrade to get more queries and access to premium content.</p>
+    <a href="mailto:info@ccarbon.info?subject=Upgrade Request" class="upgrade-btn">Contact us to upgrade →</a>
+    <br>
+    <button class="upgrade-btn secondary" onclick="document.getElementById('upgrade-overlay').classList.remove('show')">Dismiss</button>
+    <p style="font-size:11px;color:var(--muted2);margin-top:16px;">Limit resets at midnight UTC</p>
+  </div>
+</div>
+
 <!-- Auth overlay (shown until logged in) -->
 <div id="auth-overlay">
   <div id="auth-box">
@@ -607,6 +658,10 @@
     </div>
 
     <div id="messages"></div>
+    <div id="usage-bar" style="display:none;">
+      <span id="usage-text">0 / 10 queries today</span>
+      <div id="usage-bar-fill-wrap"><div id="usage-bar-fill" style="width:0%"></div></div>
+    </div>
     <div id="input-hint">Press Enter to send · Shift+Enter for new line</div>
     <div id="input-area">
       <textarea id="user-input" placeholder="Ask about Clean Fuel Standards, LCFS, carbon markets, hydrogen…" rows="1"></textarea>
@@ -690,6 +745,9 @@ async function onLogin() {
 function showApp(tier, user) {
   currentTier = tier;
   document.getElementById("auth-overlay").style.display = "none";
+  // Show usage bar for non-enterprise
+  var usageBar = document.getElementById("usage-bar");
+  if (usageBar && tier !== "enterprise") usageBar.style.display = "flex";
 
   // Update user menu
   const menu = document.getElementById("user-menu");
@@ -978,7 +1036,19 @@ async function sendMsg() {
       })
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
+    if (data.error) {
+      if (data.error.message === "LIMIT_REACHED") {
+        showUpgradePrompt(data.error.limit, data.error.tier);
+        typingRow.remove();
+        isLoading = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+        return;
+      }
+      throw new Error(data.error.message);
+    }
+    // Update usage bar
+    if (data.usage) updateUsageBar(data.usage.count, data.usage.limit);
     const reply = data.content.map(c => c.type === "text" ? c.text : "").join("");
     messages.push({ role: "assistant", content: reply });
     typingRow.remove();
@@ -1202,6 +1272,28 @@ switchTab = function(name) {
   _origSwitchTab(name);
   if (name === "prices") { renderPriceWidget(); renderPriceTable(); }
 };
+
+// ── Usage bar ─────────────────────────────────────────────────────────────────
+function updateUsageBar(count, limit) {
+  if (!limit) return;
+  var pct = Math.min(100, Math.round(count / limit * 100));
+  var fill = document.getElementById("usage-bar-fill");
+  var text = document.getElementById("usage-text");
+  if (fill) {
+    fill.style.width = pct + "%";
+    fill.className = "usage-bar-fill" + (pct >= 100 ? " full" : pct >= 80 ? " warn" : "");
+  }
+  if (text) text.textContent = count + " / " + limit + " queries today";
+}
+
+function showUpgradePrompt(limit, tier) {
+  var overlay = document.getElementById("upgrade-overlay");
+  var limitEl = document.getElementById("upgrade-limit");
+  var tierEl  = document.getElementById("upgrade-tier");
+  if (limitEl) limitEl.textContent = limit;
+  if (tierEl)  tierEl.textContent  = tier.charAt(0).toUpperCase() + tier.slice(1);
+  if (overlay) overlay.classList.add("show");
+}
 
 // Init
 renderSuggestions();

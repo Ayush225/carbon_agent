@@ -36,6 +36,11 @@ const TOP_K          = 3;
 const PRICE_API_URL  = process.env.PRICE_API_URL || "";
 const PRICE_REFRESH  = 4 * 60 * 60 * 1000;
 
+// ── Usage limits ──────────────────────────────────────────────────────────────
+const DAILY_LIMITS = { free: 10, essential: 50, enterprise: Infinity };
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ccarbon-admin-2026";
+const CONTACT_EMAIL  = process.env.CONTACT_EMAIL  || "info@ccarbon.info";
+
 // ── Tier definitions ───────────────────────────────────────────────────────────
 const TIER_POST_TYPES = {
   free:       ["news", "post"],
@@ -64,8 +69,51 @@ let priceLastFetched = null;
 let priceFetchError  = null;
 let jwksCache        = null;
 let jwksCacheTime    = 0;
+// Usage tracking: { userId: { date: "YYYY-MM-DD", count: N, email, tier, lastSeen } }
+let usageStore       = {};
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
+
+// ── Usage tracking ────────────────────────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getUsage(userId) {
+  const today = todayStr();
+  if (!usageStore[userId] || usageStore[userId].date !== today) {
+    usageStore[userId] = { ...( usageStore[userId] || {}), date: today, count: 0 };
+  }
+  return usageStore[userId];
+}
+
+function incrementUsage(userId, email, tier) {
+  const usage = getUsage(userId);
+  usage.count++;
+  usage.email = email || usage.email || userId;
+  usage.tier  = tier;
+  usage.lastSeen = new Date().toISOString();
+  return usage.count;
+}
+
+function checkLimit(userId, tier) {
+  const limit = DAILY_LIMITS[tier] || DAILY_LIMITS.free;
+  if (limit === Infinity) return { allowed: true, count: 0, limit };
+  const usage = getUsage(userId);
+  return { allowed: usage.count < limit, count: usage.count, limit };
+}
+
+function getAllUsageStats() {
+  const today = todayStr();
+  return Object.entries(usageStore).map(([userId, data]) => ({
+    userId,
+    email:    data.email    || userId,
+    tier:     data.tier     || "free",
+    today:    data.date === today ? data.count : 0,
+    total:    data.count    || 0,
+    lastSeen: data.lastSeen || "—"
+  })).sort((a, b) => b.today - a.today);
+}
 
 // ── HTTPS helper ───────────────────────────────────────────────────────────────
 function httpsRequest(options, body) {
@@ -569,23 +617,46 @@ const server = http.createServer((req, res) => {
 
         // Verify JWT and get tier
         let tier = "free";
+        let userId = "anonymous";
+        let userEmail = "";
         const token = extractToken(req);
         if (token) {
           try {
             const payload = await verifyJWT(token);
-            tier = getUserTier(payload);
-            log(`Chat request — user tier: ${tier}`);
+            tier      = getUserTier(payload);
+            userId    = payload.sub || "anonymous";
+            userEmail = payload.email || payload.name || userId;
+            log(`Chat request — user: ${userEmail} tier: ${tier}`);
           } catch (e) {
             log(`JWT verification failed: ${e.message} — defaulting to free tier`);
           }
-        } else {
-          log("No auth token — defaulting to free tier");
+        }
+
+        // Check daily usage limit
+        const limitCheck = checkLimit(userId, tier);
+        if (!limitCheck.allowed) {
+          respond(res, 429, {
+            error: {
+              message: "LIMIT_REACHED",
+              count: limitCheck.count,
+              limit: limitCheck.limit,
+              tier,
+              contactEmail: CONTACT_EMAIL
+            }
+          });
+          return;
         }
 
         const answer = await ragAnswer(question, history, tier);
+
+        // Increment usage after successful answer
+        const newCount = incrementUsage(userId, userEmail, tier);
+        log(`Usage: ${userEmail} — ${newCount}/${DAILY_LIMITS[tier] === Infinity ? "∞" : DAILY_LIMITS[tier]} today`);
+
         respond(res, 200, {
           content: [{ type: "text", text: answer }],
-          tier
+          tier,
+          usage: { count: newCount, limit: DAILY_LIMITS[tier] === Infinity ? null : DAILY_LIMITS[tier] }
         });
       } catch (e) {
         log(`Chat error: ${e.message}`);
@@ -604,6 +675,110 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end(`RAG Agent | Articles: ${totalArticles} | Qdrant: ${qdrantReady ? "ready" : "init"}`);
     }
+    return;
+  }
+
+  // GET /admin — admin dashboard HTML
+  if (pathname === "/admin" && req.method === "GET") {
+    const authHeader = req.headers["authorization"] || "";
+    const b64 = authHeader.replace("Basic ", "");
+    let authed = false;
+    try {
+      const decoded = Buffer.from(b64, "base64").toString();
+      authed = decoded === `admin:${ADMIN_PASSWORD}`;
+    } catch(e) {}
+    if (!authed) {
+      res.writeHead(401, { "WWW-Authenticate": 'Basic realm="cCarbon Admin"', "Content-Type": "text/plain" });
+      res.end("Unauthorized");
+      return;
+    }
+    const stats = getAllUsageStats();
+    const today = todayStr();
+    const totalToday = stats.reduce((a, s) => a + s.today, 0);
+    const tierCounts = { free: 0, essential: 0, enterprise: 0 };
+    stats.forEach(s => { if (tierCounts[s.tier] !== undefined) tierCounts[s.tier]++; });
+
+    const rows = stats.map(s => `
+      <tr>
+        <td>${s.email}</td>
+        <td><span class="badge ${s.tier}">${s.tier}</span></td>
+        <td>${s.today}</td>
+        <td>${DAILY_LIMITS[s.tier] === Infinity ? "∞" : DAILY_LIMITS[s.tier]}</td>
+        <td>${s.lastSeen !== "—" ? new Date(s.lastSeen).toLocaleString() : "—"}</td>
+      </tr>`).join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>cCarbon Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #0d1117; color: #e6edf3; font-size: 14px; }
+  .header { background: #203A6B; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 18px; font-weight: 600; color: white; }
+  .header span { font-size: 12px; color: rgba(255,255,255,0.6); font-family: monospace; }
+  .content { padding: 24px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px 20px; }
+  .card-label { font-size: 11px; color: #7d8590; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .card-val { font-size: 28px; font-weight: 600; font-family: monospace; }
+  .card-val.orange { color: #E3662B; }
+  .card-val.blue   { color: #6699cc; }
+  .card-val.green  { color: #3fb950; }
+  .section-title { font-size: 13px; font-weight: 600; color: #7d8590; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; background: #161b22; border: 1px solid #30363d; border-radius: 10px; overflow: hidden; }
+  th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #7d8590; border-bottom: 1px solid #30363d; background: #1c2128; }
+  td { padding: 10px 16px; border-bottom: 1px solid #21262d; color: #e6edf3; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1c2128; }
+  .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-family: monospace; }
+  .badge.free       { background: #21262d; color: #7d8590; }
+  .badge.essential  { background: #0d1e35; color: #6699cc; }
+  .badge.enterprise { background: #3d1f0f; color: #E3662B; }
+  .refresh { float: right; padding: 6px 14px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; cursor: pointer; font-size: 12px; text-decoration: none; }
+  .refresh:hover { border-color: #E3662B; color: #E3662B; }
+  .empty { padding: 40px; text-align: center; color: #7d8590; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>cCarbon Admin Dashboard</h1>
+  <span>Today: ${today}</span>
+  <a href="/admin" class="refresh" style="margin-left:auto;">↻ Refresh</a>
+</div>
+<div class="content">
+  <div class="cards">
+    <div class="card"><div class="card-label">Queries Today</div><div class="card-val orange">${totalToday}</div></div>
+    <div class="card"><div class="card-label">Total Users</div><div class="card-val">${stats.length}</div></div>
+    <div class="card"><div class="card-label">Enterprise</div><div class="card-val orange">${tierCounts.enterprise}</div></div>
+    <div class="card"><div class="card-label">Essential</div><div class="card-val blue">${tierCounts.essential}</div></div>
+  </div>
+  <div class="section-title">User Activity</div>
+  <table>
+    <thead><tr><th>User</th><th>Tier</th><th>Queries Today</th><th>Daily Limit</th><th>Last Seen</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="5" class="empty">No activity yet today</td></tr>'}</tbody>
+  </table>
+</div>
+</body>
+</html>`;
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+    return;
+  }
+
+  // GET /admin/usage — JSON usage stats API
+  if (pathname === "/admin/usage" && req.method === "GET") {
+    const authHeader = req.headers["authorization"] || "";
+    const b64 = authHeader.replace("Basic ", "");
+    let authed = false;
+    try { authed = Buffer.from(b64, "base64").toString() === `admin:${ADMIN_PASSWORD}`; } catch(e) {}
+    if (!authed) { respond(res, 401, { error: "Unauthorized" }); return; }
+    respond(res, 200, {
+      stats: getAllUsageStats(),
+      today: todayStr(),
+      limits: DAILY_LIMITS
+    });
     return;
   }
 
