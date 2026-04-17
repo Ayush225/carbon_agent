@@ -44,8 +44,8 @@ const CONTACT_EMAIL  = process.env.CONTACT_EMAIL  || "info@ccarbon.info";
 // ── Tier definitions ───────────────────────────────────────────────────────────
 const TIER_POST_TYPES = {
   free:       ["news", "post"],
-  essential:  ["news", "post", "pricecommentary", "insight"],
-  enterprise: ["news", "post", "pricecommentary", "insight", "webinar", "report"]
+  essential:  ["news", "post", "pricecommentary", "insight", "analyst-note"],
+  enterprise: ["news", "post", "pricecommentary", "insight", "webinar", "report", "analyst-note", "analytic", "analysis"]
 };
 
 function getTierFromRoles(roles) {
@@ -437,7 +437,7 @@ OUTPUT FORMAT — follow exactly when relevant documents ARE found:
 
 RULES:
 - Only output document blocks for documents actually retrieved below.
-- [SOURCE_LINK: url] must be the exact post_link value from the document. If post_link is empty, omit the SOURCE_LINK line.
+- [SOURCE_LINK: url] must be the exact post_link value from the document. If post_link is empty or blank, DO NOT include the SOURCE_LINK line at all — not even [SOURCE_LINK: ].
 - No bullet points inside Summary — prose only.
 - Dates in readable format (e.g. "17 February 2026").
 - If documents contradict each other, note the difference.
@@ -535,7 +535,15 @@ async function fetchPriceData() {
     });
     const rows = parseCSV(data);
     if (rows.length === 0) throw new Error("Empty CSV response");
-    rows.sort((a, b) => new Date(b.Date || "") - new Date(a.Date || ""));
+    rows.sort((a, b) => {
+      // Handle both "4/16/2026" and "14-Apr-2026" date formats
+      const parseDate = d => {
+        if (!d) return 0;
+        const nd = new Date(d);
+        return isNaN(nd.getTime()) ? 0 : nd.getTime();
+      };
+      return parseDate(b.Date) - parseDate(a.Date);
+    });
     priceData = rows;
     priceLastFetched = Date.now();
     priceFetchError = null;
@@ -581,7 +589,18 @@ const server = http.createServer((req, res) => {
     const sources = Object.entries(indexedFiles).map(([file, info]) => ({
       name: file.replace(".json", ""), file, records: info.count || 0, updatedAt: info.updatedAt
     }));
-    respond(res, 200, { sources, lastIndexed, watchDir: WATCH_DIR, total: sources.length, totalArticles, rag: true });
+    // Count total files to show indexing progress
+    let totalFiles = 0;
+    try {
+      totalFiles = require("fs").readdirSync(WATCH_DIR).filter(f => f.endsWith(".json")).length;
+    } catch(e) {}
+    respond(res, 200, {
+      sources, lastIndexed, watchDir: WATCH_DIR,
+      total: sources.length, totalArticles, rag: true,
+      indexing: sources.length < totalFiles,
+      indexedFiles: sources.length,
+      totalFiles
+    });
     return;
   }
 
@@ -614,7 +633,7 @@ const server = http.createServer((req, res) => {
   // POST /chat — RAG pipeline with auth
   if (pathname === "/chat" && req.method === "POST") {
     if (!GROQ_API_KEY)  { respond(res, 400, { error: { message: "GROQ_API_KEY not set" } }); return; }
-    if (!qdrantReady)   { respond(res, 503, { error: { message: "Vector index initializing, please wait..." } }); return; }
+    if (!qdrantReady)   { respond(res, 503, { error: { message: "Vector store initializing, please wait a few seconds..." } }); return; }
 
     let body = "";
     req.on("data", c => body += c);
@@ -801,24 +820,36 @@ async function boot() {
   log(`Auth0 domain: ${AUTH0_DOMAIN}`);
   log(`Tier mapping: free=${TIER_POST_TYPES.free.join(",")} | essential=${TIER_POST_TYPES.essential.join(",")} | enterprise=all`);
 
-  if (!QDRANT_URL || !QDRANT_API_KEY || !HF_API_KEY) {
-    log("ERROR: Missing QDRANT_URL, QDRANT_API_KEY, or HF_API_KEY");
-  } else {
-    try {
-      await ensureCollection();
-      qdrantReady = true;
-      await indexFolder();
-      log(`Ready. ${totalArticles} articles indexed.`);
-      setInterval(indexFolder, POLL_INTERVAL);
-    } catch (e) {
-      log(`Boot error: ${e.message}`);
-    }
-  }
+  // ── Step 1: Start server immediately so users are never blocked ──────────────
+  server.listen(PORT, () => log(`Server listening on port ${PORT} — indexing starting in background...`));
 
-  await fetchPriceData();
+  // ── Step 2: Fetch prices in background ───────────────────────────────────────
+  fetchPriceData().catch(e => log(`Price fetch error: ${e.message}`));
   setInterval(fetchPriceData, PRICE_REFRESH);
 
-  server.listen(PORT, () => log(`Listening on port ${PORT}`));
+  // ── Step 3: Index documents in background (non-blocking) ─────────────────────
+  if (!QDRANT_URL || !QDRANT_API_KEY || !HF_API_KEY) {
+    log("ERROR: Missing QDRANT_URL, QDRANT_API_KEY, or HF_API_KEY — chat will be unavailable");
+    return;
+  }
+
+  // Run indexing async — server and chat available immediately
+  (async () => {
+    try {
+      await ensureCollection();
+      // Mark ready immediately after collection is created
+      // Users can query whatever is indexed so far — articles trickle in live
+      qdrantReady = true;
+      log("Qdrant ready — chat enabled. Background indexing starting...");
+
+      // Index files one by one — each becomes searchable as soon as it's upserted
+      await indexFolder();
+      log(`Background indexing complete. ${totalArticles} articles ready.`);
+      setInterval(indexFolder, POLL_INTERVAL);
+    } catch (e) {
+      log(`Indexing error: ${e.message}`);
+    }
+  })();
 }
 
 boot();
