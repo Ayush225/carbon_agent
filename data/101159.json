@@ -1,0 +1,26 @@
+{
+  "wordpress_item_id": 596229,
+  "item_id": "101159",
+  "title": "US House Votes to Revoke Approval for California Advanced Clean Cars II",
+  "post_type": "news",
+  "post_link": "https://www.ccarbon.info/news/us-house-votes-to-revoke-approval-for-california-advanced-clean-cars-ii/",
+  "content": "The congressional disapproval nullifies the Environmental Protection Agency notice titled California State Motor Vehicle and Engine Pollution Control Standards; Advanced Clean Cars II; Waiver of Preemption; Notice of Decision (90 Fed. Reg. 642) and published on January 6, 2025. Among other elements, the EPA notice had granted the California Air Resources Board request for a waiver for its Advanced Clean Cars II (ACC II) regulations. (Under the Clean Air Act, California may seek waivers of the preemption prohibiting states from enacting certain emission standards.)",
+  "date": "2025-05-02T00:00:00Z",
+  "author": "Analysts Account",
+  "market_categories": [
+    "Clean Fuel Standards",
+    "Sustainable Fuels"
+  ],
+  "other_labels": [
+    "CA LCFS News",
+    "Policy",
+    "ZEV",
+    "ZEV News"
+  ],
+  "source": "United States Congress",
+  "source_url": "",
+  "raw_metadata": {
+    "Url": "https://www.congress.gov/bill/119th-congress/house-joint-resolution/88",
+    "File": ""
+  }
+}

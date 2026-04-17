@@ -1,0 +1,23 @@
+{
+  "wordpress_item_id": 612473,
+  "item_id": "100083",
+  "title": "Treasury, IRS Issue Proposed Regulations on the Clean Fuel Production Credit Under the One, Big, Beautiful Bill",
+  "post_type": "news",
+  "post_link": "https://www.ccarbon.info/news/treasury-irs-issue-proposed-regulations-on-the-clean-fuel-production-credit-under-the-one-big-beautiful-bill/",
+  "content": "The Treasury and IRS have issued proposed regulations on the clean fuel production credit under the One, Big, Beautiful Bill (OBBB), providing guidance to implement several key changes. Under OBBB, the credit is extended through December 31, 2029, while feedstocks are limited to those grown or produced in the United States, Mexico, or Canada. The rules introduce restrictions on prohibited foreign entities and broaden sale attribution to include fuel sold through related intermediaries. The special rate for sustainable aviation fuel is eliminated, and an anti-abuse provision is added to prevent double crediting. Negative emissions rates are prohibited except for fuels derived from animal manure, which must use feedstock-specific emissions rates. Additionally, indirect land use changes are excluded from emissions rate calculations, reflecting a more targeted approach to measuring environmental impacts.\n\nOBBB changed the clean fuel production credit to:\n<ul>\n \t<li>Extend the credit to Dec. 31, 2029;</li>\n \t<li>Limit feedstocks to those grown or produced in the US, Mexico, or Canada;</li>\n \t<li>Add prohibited foreign entity restrictions;</li>\n \t<li>Broaden sale attribution for fuel sold through related intermediaries;</li>\n \t<li>Eliminate the special rate for sustainable aviation fuel;</li>\n \t<li>Add an anti-abuse provision to prevent double crediting;</li>\n \t<li>Prohibit negative emissions rates except for fuels derived from animal manure;</li>\n \t<li>Require feedstock-specific emissions rates for fuels derived from animal manure; and</li>\n \t<li>Exclude indirect land use changes from emissions rates.</li>\n</ul>",
+  "date": "2026-02-04T00:00:00Z",
+  "author": "Analysts Account",
+  "market_categories": [
+    "Clean Fuel Standards"
+  ],
+  "other_labels": [
+    "Policy",
+    "US RFS News"
+  ],
+  "source": "Internal Revenue Service",
+  "source_url": "",
+  "raw_metadata": {
+    "Url": "https://www.irs.gov/newsroom/treasury-irs-issue-proposed-regulations-on-the-clean-fuel-production-credit-under-the-one-big-beautiful-bill",
+    "File": ""
+  }
+}

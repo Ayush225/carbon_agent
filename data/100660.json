@@ -1,0 +1,23 @@
+{
+  "wordpress_item_id": 598804,
+  "item_id": "100660",
+  "title": "Senate's Reconcilliation Bill: Proposed Amendments to 45Z Credit Tighten Eligibility and Emission Rules",
+  "post_type": "news",
+  "post_link": "https://www.ccarbon.info/news/senates-reconcilliation-bill-proposed-amendments-to-45z-credit-tighten-eligibility-and-emission-rules/",
+  "content": "The Senate Finance Committee on June 16 released its draft of the â€œbig, beautiful bill.â€ The reconciliation bill proposes several changes to the 45Z tax credit framework. It prohibits the use of negative emission rates for calculating credit values and excludes emissions from indirect land use changes in lifecycle assessments. Fuels derived from animal manure may be assigned specific emission factors based on the feedstock type, such as dairy or poultry manure. Additionally, the IRS may round emissions values to the nearest 5 kg COâ‚‚e/mmBTU. The value of the credit will also be reduced by 20% for the portion of fuel made from foreign feedstocks, based on the imported content percentage. These amendments would take effect for transportation fuels produced after December 31, 2025.",
+  "date": "2025-06-18T00:00:00Z",
+  "author": "Analysts Account",
+  "market_categories": [
+    "Clean Fuel Standards"
+  ],
+  "other_labels": [
+    "Policy",
+    "US RFS News"
+  ],
+  "source": "United States Senate Committee on Finance",
+  "source_url": "",
+  "raw_metadata": {
+    "Url": "https://www.finance.senate.gov/imo/media/doc/finance_committee_legislative_text_title_vii.pdf",
+    "File": ""
+  }
+}

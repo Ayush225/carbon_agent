@@ -1,0 +1,23 @@
+{
+  "wordpress_item_id": 608613,
+  "item_id": "100329",
+  "title": "EMEC Completes 3-in-1 Tidal Energy, Hydrogen and Battery Demonstration",
+  "post_type": "news",
+  "post_link": "https://www.ccarbon.info/?post_type=news&#038;p=608613",
+  "content": "The European Marine Energy Centre (EMEC) in Orkney, Scotland, has successfully completed a world-first demonstration integrating tidal power, vanadium flow battery storage, and hydrogen production. This \"3-in-1\" system combined Orbital Marine Powerâ€™s O2 tidal turbine, Invinity Energy Systems' flow batteries, and an ITM Power electrolyser. The trial tested various energy flow scenarios to smooth the cyclical nature of tidal energy: during peak generation, the turbine charged the batteries and powered the electrolyser; during low tides, the batteries discharged to maintain continuous hydrogen production.\n\nThis approach effectively demonstrated how energy storage can mitigate grid constraints and ensure consistent power for hydrogen synthesis. Supported by the Interreg North-West Europe funded ITEG project and the EU-funded FORWARD2030 initiative, the project validated the technical feasibility of this hybrid system. The team successfully managed operational safety, including rapid responses to system trips, while identifying future needs for enhanced automation to optimize reliability.",
+  "date": "2025-12-05T00:00:00Z",
+  "author": "Tarana Ahmad",
+  "market_categories": [
+    "Sustainable Fuels"
+  ],
+  "other_labels": [
+    "Hydrogen",
+    "Other SF Global Market News"
+  ],
+  "source": "EMEC",
+  "source_url": "",
+  "raw_metadata": {
+    "Url": "https://www.emec.org.uk/emec-completes-3-in-1-tidal-energy-hydrogen-and-battery-demonstration/",
+    "File": ""
+  }
+}

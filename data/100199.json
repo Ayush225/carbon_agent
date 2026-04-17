@@ -1,0 +1,24 @@
+{
+  "wordpress_item_id": 610219,
+  "item_id": "100199",
+  "title": "EIA Short-Term Energy Outlook (STEO) January 2026: Renewable Diesel and SAF Forecasts",
+  "post_type": "news",
+  "post_link": "https://www.ccarbon.info/news/eia-short-term-energy-outlook-steo-january-2026-renewable-diesel-and-saf-forecasts/",
+  "content": "The EIAâ€™s January 2026 Short-Term Energy Outlook forecasts continued growth in U.S. renewable diesel production, projected to average 250,000 barrels per day (b/d) in 2026 and rise to 290,000 b/d in 2027. Renewable diesel consumption is expected to follow this trend, averaging 220,000 b/d in 2026 and expanding to 260,000 b/d in 2027. The U.S. is anticipated to remain a net exporter of renewable diesel, with net imports holding steady at -20,000 b/d (indicating net exports) through 2027. For the \"other biofuels\" categoryâ€”which includes sustainable aviation fuel (SAF), renewable heating oil, and renewable naphthaâ€”production is forecast to average 40,000 b/d in 2026, increasing to 50,000 b/d in 2027. Consumption of these fuels is projected to match production levels, while net imports remain at zero, suggesting domestic supply will effectively meet demand.",
+  "date": "2026-01-15T00:00:00Z",
+  "author": "Analysts Account",
+  "market_categories": [
+    "Sustainable Fuels"
+  ],
+  "other_labels": [
+    "Production",
+    "RD News",
+    "SAF News"
+  ],
+  "source": "U.S. Energy Information Administration",
+  "source_url": "",
+  "raw_metadata": {
+    "Url": "https://www.eia.gov/outlooks/steo/pdf/steo_full.pdf",
+    "File": ""
+  }
+}

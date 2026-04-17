@@ -1,0 +1,26 @@
+{
+  "wordpress_item_id": 608870,
+  "item_id": "100317",
+  "title": "U.S. Venture Requests LCFS Pathway for Biomethane: CARB",
+  "post_type": "news",
+  "post_link": "https://www.ccarbon.info/news/u-s-venture-requests-lcfs-pathway-for-biomethane-carb/",
+  "content": "U.S. Venture, Inc. seeks certification of a Tier 2 pathway for biomethane (Bio-CNG) production at BUTTERFIELD RNG 1, LLC in Gila Bend, Arizona. The project utilizes biogas produced from anaerobic digestion of dairy manure sourced from the co-located Butterfield Dairy, LLC, which houses approximately 23,720 cows. Under the project condition, manure previously flushed to lagoons is now sent to an enclosed anaerobic plug flow digester, capturing methane that would otherwise be emitted.\n\nThe collected biogas undergoes upgrading, including desulfurization, water and volatile organic compound removal, and CO2 separation via a multi-stage membrane skid. The resulting biomethane meets common carrier pipeline specifications and is directly injected into the Southwest Gas pipeline. U.S. Venture sells the environmental attributes using book-and-claim accounting for transportation use in CNG vehicles in California.",
+  "date": "2025-12-10T00:00:00Z",
+  "author": "Analysts Account",
+  "market_categories": [
+    "Clean Fuel Standards",
+    "Sustainable Fuels"
+  ],
+  "other_labels": [
+    "BioFuel",
+    "CA LCFS News",
+    "Fuel Pathways",
+    "RNG News"
+  ],
+  "source": "California Air Resources Board",
+  "source_url": "",
+  "raw_metadata": {
+    "Url": "https://ww2.arb.ca.gov/sites/default/files/classic/fuels/lcfs/fuelpathways/comments/tier2/b0884_summary.pdf",
+    "File": ""
+  }
+}
