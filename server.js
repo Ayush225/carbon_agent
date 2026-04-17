@@ -390,7 +390,9 @@ async function ragAnswer(question, history, tier) {
   const qVecs = await embed([question]);
   const hits  = await searchQdrant(qVecs[0], allowedPostTypes);
 
-  const context = hits.map((h, i) => {
+  // Filter out low-confidence matches (score < 0.3 means barely relevant)
+  const relevantHits = hits.filter(h => h.score >= 0.3);
+  const context = relevantHits.map((h, i) => {
     const p = h.payload;
     const date = p.date ? new Date(p.date).toDateString() : "unknown";
     const snippet = (p.content || "").slice(0, 500);
@@ -413,50 +415,33 @@ ${snippet}`;
     ? "\n\nNote: This user is on the Essential tier. News, price commentaries, and insights are available."
     : "";
 
-  const system = `You are an expert market analyst assistant trained on cCarbon proprietary content.
+  const system = `You are a strict market intelligence assistant for cCarbon. You have access to a set of retrieved documents below.
 
-Use ONLY the indexed documents provided to you (news, insights, reports, webinars, price commentaries, articles).
+CRITICAL RULES — MUST FOLLOW:
+1. ONLY use information from the "Retrieved documents" section below. NEVER use your training knowledge.
+2. If the retrieved documents do not contain relevant information for the query, respond ONLY with: "No relevant documents were found in the cCarbon library for this query."
+3. Do NOT mention, cite, or reference any external sources, reports, organizations, or data that is not explicitly present in the retrieved documents.
+4. Do NOT invent titles, authors, dates, statistics, or URLs.
+5. Every fact you state must be traceable to one of the numbered retrieved documents.
 
-TASKS:
-1. Retrieve the most relevant documents based on the user query.
-2. Filter results by document type, market categories, or date range if specified.
-3. Summarize the findings clearly and concisely.
-4. Present information in a structured format with headings.
-5. ALWAYS include date references when mentioning any insight, report, or event.
-6. If multiple documents are used, clearly differentiate them.
-7. If a download link or post_link is available, include it.
-8. Do NOT hallucinate information outside the provided documents.
+OUTPUT FORMAT — follow exactly when relevant documents ARE found:
 
-OUTPUT FORMAT — FOLLOW EXACTLY:
-
-Start with:
 **Executive Summary**
-• [bullet 1]
-• [bullet 2]
-• [bullet 3 max]
-
-Then for EACH document, output EXACTLY this block (no bullet points inside):
+• [2-3 bullet points summarizing key findings from the retrieved documents only]
 
 ---
-**[Title of document]**
+**[Exact title from document]**
 **Type:** [post_type] | **Author:** [author] | **Date:** [readable date]
-**Summary:** [Write 2-3 sentences as a prose paragraph. No bullet points here.]
+**Summary:** [2-3 sentence prose paragraph using ONLY information from this document]
 [SOURCE_LINK: post_link_url]
 
 RULES:
-- Use exactly the format above. Do not use * or + for lists inside document blocks.
-- [SOURCE_LINK: url] must use the actual post_link value from the document data.
-- Never use bullet points or dashes inside the Summary field — prose only.
-- Separate each document block with a blank line.
-
-DATE HANDLING:
-- Always convert dates into readable format (e.g., "21 November 2025").
-- If comparing trends, explicitly mention the time period.
-- If no recent documents are found, say so clearly.
-
-TONE: Professional, analytical, neutral, data-driven.
-
-IMPORTANT: If multiple documents contradict each other, mention the difference. Never fabricate numbers, prices, or policy statements.
+- Only output document blocks for documents actually retrieved below.
+- [SOURCE_LINK: url] must be the exact post_link value from the document. If post_link is empty, omit the SOURCE_LINK line.
+- No bullet points inside Summary — prose only.
+- Dates in readable format (e.g. "17 February 2026").
+- If documents contradict each other, note the difference.
+- Never say "please let me know" or "feel free to ask" — end the response after the last document.
 ${tierNote}
 
 Retrieved documents (most relevant first):
@@ -472,31 +457,48 @@ ${context || "No relevant documents found for this query."}${priceContext}${pric
     ]
   });
 
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: "api.groq.com",
-      path: "/openai/v1/chat/completions",
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "Authorization": `Bearer ${GROQ_API_KEY}`
-      }
-    }, res => {
-      let data = "";
-      res.on("data", c => data += c);
-      res.on("end", () => {
-        try {
-          const r = JSON.parse(data);
-          if (r.error) return reject(new Error(r.error.message));
-          resolve(r.choices?.[0]?.message?.content || "");
-        } catch (e) { reject(e); }
+  async function callGroq(retries = 3) {
+    return new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: "api.groq.com",
+        path: "/openai/v1/chat/completions",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+          "Authorization": `Bearer ${GROQ_API_KEY}`
+        }
+      }, res => {
+        let data = "";
+        res.on("data", c => data += c);
+        res.on("end", async () => {
+          try {
+            const r = JSON.parse(data);
+            if (r.error) {
+              // Rate limit — extract wait time and retry
+              if (r.error.code === "rate_limit_exceeded" && retries > 0) {
+                const match = (r.error.message || "").match(/try again in ([\d.]+)s/);
+                const wait = match ? Math.ceil(parseFloat(match[1]) * 1000) + 500 : 5000;
+                log(`Groq rate limit hit — retrying in ${wait}ms (${retries} retries left)`);
+                setTimeout(async () => {
+                  try { resolve(await callGroq(retries - 1)); }
+                  catch (e) { reject(e); }
+                }, wait);
+                return;
+              }
+              return reject(new Error(r.error.message));
+            }
+            resolve(r.choices?.[0]?.message?.content || "");
+          } catch (e) { reject(e); }
+        });
       });
+      req.on("error", reject);
+      req.write(payload);
+      req.end();
     });
-    req.on("error", reject);
-    req.write(payload);
-    req.end();
-  });
+  }
+
+  return callGroq();
 }
 
 // ── Price API ──────────────────────────────────────────────────────────────────

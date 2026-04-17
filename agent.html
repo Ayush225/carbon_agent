@@ -995,6 +995,7 @@ function formatReply(text) {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, function(_, t, u) {
       return '<a href="'+u+'" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">'+t+'</a>';
     })
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">')
     .replace(/\n/g, "<br>");
 }
 function escHtml(s) {
