@@ -232,6 +232,14 @@ async function ensureCollection() {
   });
   if (res.status === 200 || res.status === 201) log(`Collection "${COLLECTION}" created (dim=${dim})`);
   else throw new Error(`Failed to create collection: ${JSON.stringify(res.body)}`);
+
+  // Create payload index on post_type for tier-based filtering
+  const idxRes = await qdrantReq("PUT", `/collections/${COLLECTION}/index`, {
+    field_name: "post_type",
+    field_schema: "keyword"
+  });
+  if (idxRes.status === 200 || idxRes.status === 201) log(`Index created on post_type`);
+  else log(`Warning: could not create post_type index: ${JSON.stringify(idxRes.body)}`);
 }
 
 async function upsertPoints(points) {
